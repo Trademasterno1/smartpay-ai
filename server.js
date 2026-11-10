@@ -51,7 +51,7 @@ async function askGroq(question, context) {
     method: "POST",
     headers: { Authorization: "Bearer " + process.env.GROQ_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
       temperature: 0.2,
       max_completion_tokens: 700,
       messages: [
