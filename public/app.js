@@ -20,17 +20,43 @@ function renderInvoices() {
 }
 
 async function refreshDashboard() {
-  const [invoiceResponse, summaryResponse] = await Promise.all([
-    fetch("/api/invoices"), fetch("/api/summary")
-  ]);
-  invoices = await invoiceResponse.json();
-  const summary = await summaryResponse.json();
-  $("#totalValue").textContent = money(summary.totalValue, "USD");
-  $("#paidCount").textContent = summary.paidCount;
-  $("#unpaidCount").textContent = summary.unpaidCount;
-  $("#overdueCount").textContent = summary.overdueCount;
-  renderInvoices();
-  renderRecoveryInvoices();
+  const container = $("#recoveryList");
+  try {
+    const [invoiceResponse, summaryResponse] = await Promise.all([
+      fetch("/api/invoices", { cache: "no-store" }),
+      fetch("/api/summary", { cache: "no-store" })
+    ]);
+    if (!invoiceResponse.ok) throw new Error("Invoices API returned HTTP " + invoiceResponse.status);
+    if (!summaryResponse.ok) throw new Error("Summary API returned HTTP " + summaryResponse.status);
+    const invoiceData = await invoiceResponse.json();
+    const summary = await summaryResponse.json();
+    if (!Array.isArray(invoiceData)) throw new Error("Invoices API returned an unexpected response.");
+    invoices = invoiceData;
+    $("#totalValue").textContent = money(summary.totalValue, "USD");
+    $("#paidCount").textContent = summary.paidCount;
+    $("#unpaidCount").textContent = summary.unpaidCount;
+    $("#overdueCount").textContent = summary.overdueCount;
+    renderInvoices();
+    renderRecoveryInvoices();
+  } catch (error) {
+    console.error("Dashboard loading failed:", error);
+    if (container) {
+      container.innerHTML = "";
+      const message = document.createElement("p");
+      message.className = "recovery-empty";
+      message.textContent = "Could not load outstanding invoices. " + (error.message || "Please check your connection.");
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "draft-button";
+      retry.textContent = "Retry loading";
+      retry.addEventListener("click", () => {
+        message.textContent = "Loading outstanding invoices…";
+        retry.remove();
+        refreshDashboard();
+      });
+      container.append(message, retry);
+    }
+  }
 }
 
 function renderRecoveryInvoices() {
