@@ -200,6 +200,42 @@ app.post("/api/paypal/capture-order", async (req, res) => {
   }
 });
 
+
+app.post("/api/recovery/draft", async (req, res) => {
+  const invoiceId = String(req.body.invoiceId || "").trim();
+  const invoice = invoices.find(item => item.id === invoiceId);
+  if (!invoice) return res.status(404).json({ error: "Invoice not found." });
+  if (invoice.status === "PAID") return res.status(400).json({ error: "This invoice is already paid." });
+  const today = new Date().toISOString().slice(0, 10);
+  const daysOverdue = Math.max(0, Math.floor((Date.parse(today + "T00:00:00Z") - Date.parse(invoice.dueDate + "T00:00:00Z")) / 86400000));
+  const daysUntilDue = Math.ceil((Date.parse(invoice.dueDate + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000);
+  const priority = daysOverdue > 0 || invoice.status === "OVERDUE" ? "HIGH" : daysUntilDue <= 3 ? "MEDIUM" : "LOW";
+  const question = [
+    "Write a professional, polite and concise payment reminder draft for this invoice.",
+    "Return only a useful draft with the exact labels Subject: and Message:.",
+    "Address the customer by company name. State the exact invoice ID, amount, currency and due date.",
+    "Ask the customer to confirm the expected payment date. Do not threaten, add fees, invent facts, or claim payment was sent or received.",
+    "This is a draft for a human to review. Do not say that you sent it."
+  ].join(" ");
+  const context = JSON.stringify({ today, invoice });
+  try {
+    let draft, provider;
+    if (process.env.GROQ_API_KEY) {
+      try { draft = await askGroq(question, context); provider = "Groq"; }
+      catch (groqError) {
+        if (groqError.status === 401 || !process.env.GEMINI_API_KEY) throw groqError;
+        draft = await askGemini(question, context); provider = "Gemini (fallback)";
+      }
+    } else if (process.env.GEMINI_API_KEY) {
+      draft = await askGemini(question, context); provider = "Gemini";
+    } else return res.status(503).json({ error: "AI is not configured." });
+    return res.json({ invoiceId: invoice.id, customer: invoice.customer, email: invoice.email, amount: invoice.amount, currency: invoice.currency, dueDate: invoice.dueDate, priority, daysOverdue, draft, provider, sent: false });
+  } catch (error) {
+    console.error("Recovery draft failed:", error.message);
+    return res.status(error.status && error.status >= 400 && error.status < 500 ? error.status : 503).json({ error: error.message || "Unable to generate a reminder draft. Please try again." });
+  }
+});
+
 app.post("/api/ai/ask", async (req, res) => {
   const question = String(req.body.question || "").trim().slice(0, 1000);
   if (!question) return res.status(400).json({ error: "Please enter a question." });

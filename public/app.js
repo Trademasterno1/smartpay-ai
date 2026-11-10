@@ -30,6 +30,66 @@ async function refreshDashboard() {
   $("#unpaidCount").textContent = summary.unpaidCount;
   $("#overdueCount").textContent = summary.overdueCount;
   renderInvoices();
+  renderRecoveryInvoices();
+}
+
+function renderRecoveryInvoices() {
+  const container = $("#recoveryList");
+  container.innerHTML = "";
+  const outstanding = invoices.filter(invoice => invoice.status !== "PAID");
+  if (!outstanding.length) {
+    const empty = document.createElement("p");
+    empty.className = "recovery-empty";
+    empty.textContent = "All sample invoices are paid. No recovery actions are needed.";
+    container.appendChild(empty);
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  outstanding.sort((left, right) => left.dueDate.localeCompare(right.dueDate));
+  outstanding.forEach(invoice => {
+    const daysLate = Math.max(0, Math.floor((Date.parse(today + "T00:00:00Z") - Date.parse(invoice.dueDate + "T00:00:00Z")) / 86400000));
+    const priority = daysLate > 0 || invoice.status === "OVERDUE" ? "HIGH" : (Date.parse(invoice.dueDate + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000 <= 3 ? "MEDIUM" : "LOW";
+    const card = document.createElement("article");
+    card.className = "recovery-item";
+    const details = document.createElement("div");
+    details.className = "recovery-details";
+    const name = document.createElement("strong");
+    name.textContent = invoice.customer + " · " + invoice.id;
+    const meta = document.createElement("span");
+    meta.textContent = money(invoice.amount, invoice.currency) + " · Due " + invoice.dueDate + " · " + invoice.email;
+    details.append(name, meta);
+    const actions = document.createElement("div");
+    actions.className = "recovery-actions";
+    const badge = document.createElement("span");
+    badge.className = "priority " + priority;
+    badge.textContent = priority + " PRIORITY";
+    const button = document.createElement("button");
+    button.className = "draft-button";
+    button.type = "button";
+    button.textContent = "Generate reminder";
+    const draft = document.createElement("pre");
+    draft.className = "recovery-draft";
+    draft.hidden = true;
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Generating…";
+      draft.hidden = false;
+      draft.textContent = "Preparing a personalized draft with the AI provider…";
+      try {
+        const response = await fetch("/api/recovery/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoiceId: invoice.id }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not generate reminder.");
+        draft.textContent = "To: " + data.email + "\nInvoice: " + data.invoiceId + " · " + money(data.amount, data.currency) + "\nPriority: " + data.priority + (data.daysOverdue ? " · " + data.daysOverdue + " days overdue" : "") + "\n\n" + data.draft + "\n\nAI provider: " + data.provider + "\nDraft only — not sent.";
+        button.textContent = "Regenerate draft";
+      } catch (error) {
+        draft.textContent = error.message;
+        button.textContent = "Try again";
+      } finally { button.disabled = false; }
+    });
+    actions.append(badge, button);
+    card.append(details, actions, draft);
+    container.appendChild(card);
+  });
 }
 
 async function startPayPalCheckout(invoiceId) {
