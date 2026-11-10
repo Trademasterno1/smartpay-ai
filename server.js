@@ -26,27 +26,27 @@ function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchGeminiWithRetry(url, options, maxRetries = 3) {
+async function fetchGeminiWithRetry(url, options, maxRetries = 2) {
   let lastError;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, { ...options, signal: AbortSignal.timeout(12000) });
       if (!GEMINI_RETRYABLE_STATUS.has(response.status) || attempt === maxRetries) {
         return response;
       }
 
       const retryAfter = Number(response.headers.get("retry-after"));
       const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(retryAfter * 1000, 10000)
-        : Math.min(1000 * (2 ** attempt), 8000);
+        ? Math.min(retryAfter * 1000, 3000)
+        : Math.min(1000 * (2 ** attempt), 3000);
 
       console.warn("Gemini temporarily unavailable (HTTP " + response.status + "). Retry " + (attempt + 1) + "/" + maxRetries + " in " + delayMs + "ms.");
       await wait(delayMs);
     } catch (error) {
       lastError = error;
       if (attempt === maxRetries) break;
-      const delayMs = Math.min(1000 * (2 ** attempt), 8000);
+      const delayMs = Math.min(1000 * (2 ** attempt), 3000);
       console.warn("Gemini network error. Retry " + (attempt + 1) + "/" + maxRetries + " in " + delayMs + "ms.");
       await wait(delayMs);
     }
