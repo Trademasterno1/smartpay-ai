@@ -79,7 +79,19 @@ function renderRecoveryInvoices() {
         const response = await fetch("/api/recovery/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoiceId: invoice.id }) });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate reminder.");
-        draft.textContent = "To: " + data.email + "\nInvoice: " + data.invoiceId + " · " + money(data.amount, data.currency) + "\nPriority: " + data.priority + (data.daysOverdue ? " · " + data.daysOverdue + " days overdue" : "") + "\n\n" + data.draft + "\n\nAI provider: " + data.provider + "\nDraft only — not sent. PayPal checkout link created in Sandbox; payment requires customer approval.";
+        const paymentLink = document.createElement("a");
+        let safeCheckoutUrl;
+        try { safeCheckoutUrl = new URL(data.checkoutUrl); } catch (_) { throw new Error("PayPal did not return a valid checkout link."); }
+        if (safeCheckoutUrl.protocol !== "https:" || !["paypal.com", "www.paypal.com", "www.sandbox.paypal.com"].includes(safeCheckoutUrl.hostname)) throw new Error("The PayPal checkout link is not trusted.");
+        paymentLink.href = safeCheckoutUrl.href;
+        paymentLink.target = "_blank";
+        paymentLink.rel = "noopener noreferrer";
+        paymentLink.textContent = "Open secure PayPal checkout";
+        paymentLink.className = "recovery-payment-link";
+        const draftText = data.draft.replace(/\\n?\\n?Pay securely with PayPal: https:\\/\\/[^\\s]+/i, "");
+        draft.textContent = "To: " + data.email + "\\nInvoice: " + data.invoiceId + " · " + money(data.amount, data.currency) + "\\nPriority: " + data.priority + (data.daysOverdue ? " · " + data.daysOverdue + " days overdue" : "") + "\\n\\n" + draftText + "\\n\\nAI provider: " + data.provider + "\\nDraft only — not sent. Payment requires customer approval.";
+        draft.appendChild(document.createElement("br"));
+        draft.appendChild(paymentLink);
         button.textContent = "Regenerate draft";
       } catch (error) {
         draft.textContent = error.message;
