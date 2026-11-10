@@ -21,38 +21,79 @@ const invoices = [
 let paypalTokenCache = { token: null, expiresAt: 0 };
 
 const GEMINI_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const GROQ_FALLBACK_STATUS = new Set([400, 403, 404, 429, 500, 502, 503, 504]);
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchGeminiWithRetry(url, options, maxRetries = 2) {
+async function fetchWithRetry(url, options, retryableStatuses, maxRetries = 2) {
   let lastError;
-
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(url, { ...options, signal: AbortSignal.timeout(12000) });
-      if (!GEMINI_RETRYABLE_STATUS.has(response.status) || attempt === maxRetries) {
-        return response;
-      }
-
+      if (!retryableStatuses.has(response.status) || attempt === maxRetries) return response;
       const retryAfter = Number(response.headers.get("retry-after"));
-      const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(retryAfter * 1000, 3000)
-        : Math.min(1000 * (2 ** attempt), 3000);
-
-      console.warn("Gemini temporarily unavailable (HTTP " + response.status + "). Retry " + (attempt + 1) + "/" + maxRetries + " in " + delayMs + "ms.");
+      const delayMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 3000) : Math.min(1000 * (2 ** attempt), 3000);
+      console.warn("AI provider temporarily unavailable (HTTP " + response.status + "). Retrying.");
       await wait(delayMs);
     } catch (error) {
       lastError = error;
       if (attempt === maxRetries) break;
-      const delayMs = Math.min(1000 * (2 ** attempt), 3000);
-      console.warn("Gemini network error. Retry " + (attempt + 1) + "/" + maxRetries + " in " + delayMs + "ms.");
-      await wait(delayMs);
+      await wait(Math.min(1000 * (2 ** attempt), 3000));
     }
   }
+  throw lastError || new Error("AI provider is temporarily unavailable. Please try again shortly.");
+}
 
-  throw lastError || new Error("Gemini is temporarily unavailable. Please try again shortly.");
+async function askGroq(question, context) {
+  const response = await fetchWithRetry("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + process.env.GROQ_API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      temperature: 0.2,
+      max_completion_tokens: 700,
+      messages: [
+        { role: "system", content: "You are SmartPay AI, a careful finance operations assistant for small businesses. Answer using only the invoice data provided. Never claim a payment was received unless its status is PAID. Distinguish demo data from real financial records. Be concise and give actionable insights." },
+        { role: "user", content: "Invoice data: " + context + "\nUser question: " + question }
+      ]
+    })
+  }, GROQ_FALLBACK_STATUS);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data.error?.message || "Groq AI request failed.");
+    error.status = response.status;
+    throw error;
+  }
+  const answer = data.choices?.[0]?.message?.content;
+  if (!answer) throw new Error("Groq returned an empty response.");
+  return answer;
+}
+
+async function askGemini(question, context) {
+  if (!process.env.GEMINI_API_KEY) throw new Error("Gemini fallback is not configured.");
+  const response = await fetchWithRetry(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + encodeURIComponent(process.env.GEMINI_API_KEY),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: "You are SmartPay AI, a careful finance operations assistant for small businesses. Answer using only the invoice data provided. Never claim a payment was received unless its status is PAID. Distinguish demo data from real financial records. Be concise and give actionable insights." }] },
+        contents: [{ parts: [{ text: "Invoice data: " + context + "\nUser question: " + question }] }]
+      })
+    },
+    GEMINI_RETRYABLE_STATUS
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data.error?.message || "Gemini AI request failed.");
+    error.status = response.status;
+    throw error;
+  }
+  const answer = data.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("\n");
+  if (!answer) throw new Error("Gemini returned an empty response.");
+  return answer;
 }
 
 async function getPayPalAccessToken() {
@@ -129,33 +170,32 @@ app.post("/api/paypal/capture-order", async (req, res) => {
 });
 
 app.post("/api/ai/ask", async (req, res) => {
+  const question = String(req.body.question || "").trim().slice(0, 1000);
+  if (!question) return res.status(400).json({ error: "Please enter a question." });
+  const context = JSON.stringify(invoices);
+
   try {
-    const question = String(req.body.question || "").trim().slice(0, 1000);
-    if (!question) return res.status(400).json({ error: "Please enter a question." });
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(503).json({
-        error: "AI is not configured yet. Add a Gemini API key to the server environment to enable the AI assistant.",
-        summary: buildBusinessSummary()
-      });
-    }
-    const context = JSON.stringify(invoices);
-    const response = await fetchGeminiWithRetry(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + encodeURIComponent(process.env.GEMINI_API_KEY),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: "You are SmartPay AI, a careful finance operations assistant for small businesses. Answer using only the invoice data provided. Never claim a payment was received unless its status is PAID. Distinguish demo data from real financial records. Be concise and give actionable insights." }] },
-          contents: [{ parts: [{ text: "Invoice data: " + context + "\nUser question: " + question }] }]
-        })
+    if (process.env.GROQ_API_KEY) {
+      try {
+        const answer = await askGroq(question, context);
+        return res.json({ answer, provider: "Groq" });
+      } catch (groqError) {
+        if (groqError.status === 401) throw groqError;
+        if (!process.env.GEMINI_API_KEY) throw groqError;
+        console.warn("Groq unavailable; attempting Gemini fallback:", groqError.message);
+        const answer = await askGemini(question, context);
+        return res.json({ answer, provider: "Gemini (fallback)" });
       }
-    );
-    const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.error?.message || "AI request failed." });
-    const answer = data.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("\n") || "I couldn't generate an answer.";
-    res.json({ answer });
+    }
+    if (process.env.GEMINI_API_KEY) {
+      const answer = await askGemini(question, context);
+      return res.json({ answer, provider: "Gemini" });
+    }
+    return res.status(503).json({ error: "AI is not configured. Add GROQ_API_KEY or GEMINI_API_KEY in the server environment.", summary: buildBusinessSummary() });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("AI request failed:", error.message);
+    return res.status(error.status && error.status >= 400 && error.status < 500 ? error.status : 503)
+      .json({ error: error.message || "AI is temporarily unavailable. Please try again." });
   }
 });
 
