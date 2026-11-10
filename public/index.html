@@ -22,7 +22,7 @@
       <div class="sidebar-bottom"><div class="sandbox-pill"><i></i> PayPal Sandbox mode</div><p>Demo workspace<br><small>Sample data · No real money</small></p></div>
     </aside>
     <main class="main">
-      <header class="topbar"><div><div class="eyebrow">MONDAY, NOVEMBER 10, 2026</div><h1>Good morning <span>✦</span></h1><p class="subhead">Here’s what’s happening with your payments.</p></div><div class="avatar">SP</div></header>
+      <header class="topbar"><div><div class="eyebrow">PAYMENT OPERATIONS · DEMO</div><h1>Good morning <span>✦</span></h1><p class="subhead">Here’s what’s happening with your payments.</p></div><div class="avatar">SP</div></header>
       <section class="stats">
         <article class="stat-card"><div class="stat-top">Total invoice value <span>↗</span></div><div class="stat-value" id="totalValue">$1,874.50</div><div class="stat-note">Across all sample invoices</div></article>
         <article class="stat-card"><div class="stat-top">Paid invoices <span class="green">●</span></div><div class="stat-value" id="paidCount">1</div><div class="stat-note">Successfully captured</div></article>
@@ -33,6 +33,7 @@
         <article class="panel invoice-panel" id="invoices">
           <div class="panel-heading"><div><div class="eyebrow">REVENUE OPERATIONS</div><h2>Recent invoices</h2></div><span class="tiny-tag">DEMO DATA</span></div>
           <div class="table-wrap"><table><thead><tr><th>INVOICE / CUSTOMER</th><th>DUE DATE</th><th>AMOUNT</th><th>STATUS</th><th></th></tr></thead><tbody id="invoiceRows"></tbody></table></div>
+          <div id="paypal-checkout-placeholder" class="checkout-slot"></div>
           <p class="table-foot">Payments are processed in PayPal Sandbox only.</p>
         </article>
         <article class="panel assistant-panel" id="assistant">
