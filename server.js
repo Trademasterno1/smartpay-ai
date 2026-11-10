@@ -123,30 +123,47 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/invoices", (_req, res) => res.json(invoices));
 
+
+async function createPayPalOrderForInvoice(invoice) {
+  const token = await getPayPalAccessToken();
+  const response = await fetch(PAYPAL_BASE + "/v2/checkout/orders", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: invoice.id,
+        description: "SmartPay AI invoice " + invoice.id,
+        amount: { currency_code: invoice.currency, value: invoice.amount }
+      }]
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data.message || "Could not create PayPal order.");
+    error.status = response.status;
+    throw error;
+  }
+  const approvalHref = data.links?.find(link => link.rel === "approve" || link.rel === "payer-action")?.href;
+  if (!data.id || !approvalHref) throw new Error("PayPal did not return a valid checkout approval link.");
+  const parsedUrl = new URL(approvalHref);
+  if (parsedUrl.protocol !== "https:" || !["paypal.com", "www.paypal.com", "www.sandbox.paypal.com"].includes(parsedUrl.hostname)) {
+    throw new Error("PayPal returned an unexpected checkout URL.");
+  }
+  invoice.paypalOrderId = data.id;
+  return { id: data.id, approvalUrl: approvalHref };
+}
+
+
 app.post("/api/paypal/create-order", async (req, res) => {
   try {
     const invoice = invoices.find(item => item.id === req.body.invoiceId);
     if (!invoice) return res.status(404).json({ error: "Invoice not found." });
     if (invoice.status === "PAID") return res.status(400).json({ error: "This invoice is already paid." });
-    const token = await getPayPalAccessToken();
-    const response = await fetch(PAYPAL_BASE + "/v2/checkout/orders", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        intent: "CAPTURE",
-        purchase_units: [{
-          reference_id: invoice.id,
-          description: "SmartPay AI invoice " + invoice.id,
-          amount: { currency_code: invoice.currency, value: invoice.amount }
-        }]
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.message || "Could not create PayPal order." });
-    invoice.paypalOrderId = data.id;
-    res.json({ id: data.id });
+    const order = await createPayPalOrderForInvoice(invoice);
+    res.json(order);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.status || 500).json({ error: error.message || "Could not create PayPal checkout." });
   }
 });
 
@@ -229,7 +246,9 @@ app.post("/api/recovery/draft", async (req, res) => {
     } else if (process.env.GEMINI_API_KEY) {
       draft = await askGemini(question, context); provider = "Gemini";
     } else return res.status(503).json({ error: "AI is not configured." });
-    return res.json({ invoiceId: invoice.id, customer: invoice.customer, email: invoice.email, amount: invoice.amount, currency: invoice.currency, dueDate: invoice.dueDate, priority, daysOverdue, draft, provider, sent: false });
+    const checkout = await createPayPalOrderForInvoice(invoice);
+    const draftWithPaymentLink = draft + "\n\nPay securely with PayPal: " + checkout.approvalUrl;
+    return res.json({ invoiceId: invoice.id, customer: invoice.customer, email: invoice.email, amount: invoice.amount, currency: invoice.currency, dueDate: invoice.dueDate, priority, daysOverdue, draft: draftWithPaymentLink, provider, checkoutUrl: checkout.approvalUrl, sent: false });
   } catch (error) {
     console.error("Recovery draft failed:", error.message);
     return res.status(error.status && error.status >= 400 && error.status < 500 ? error.status : 503).json({ error: error.message || "Unable to generate a reminder draft. Please try again." });

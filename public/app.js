@@ -79,7 +79,7 @@ function renderRecoveryInvoices() {
         const response = await fetch("/api/recovery/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoiceId: invoice.id }) });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate reminder.");
-        draft.textContent = "To: " + data.email + "\nInvoice: " + data.invoiceId + " · " + money(data.amount, data.currency) + "\nPriority: " + data.priority + (data.daysOverdue ? " · " + data.daysOverdue + " days overdue" : "") + "\n\n" + data.draft + "\n\nAI provider: " + data.provider + "\nDraft only — not sent.";
+        draft.textContent = "To: " + data.email + "\nInvoice: " + data.invoiceId + " · " + money(data.amount, data.currency) + "\nPriority: " + data.priority + (data.daysOverdue ? " · " + data.daysOverdue + " days overdue" : "") + "\n\n" + data.draft + "\n\nAI provider: " + data.provider + "\nDraft only — not sent. PayPal checkout link created in Sandbox; payment requires customer approval.";
         button.textContent = "Regenerate draft";
       } catch (error) {
         draft.textContent = error.message;
