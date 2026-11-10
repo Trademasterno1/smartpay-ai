@@ -34,7 +34,7 @@ AI-powered payment and invoice assistant for small businesses, built for the Pay
 | `PAYPAL_CLIENT_ID` | PayPal Sandbox REST app client ID |
 | `PAYPAL_CLIENT_SECRET` | PayPal Sandbox secret; server-side only |
 | `PAYPAL_ENV` | Use `sandbox` for testing |
-| `GROQ_API_KEY` | Groq API key for primary AI responses |\n| `GROQ_MODEL` | Optional Groq model ID (default: `llama-3.3-70b-versatile`) |\n| `GEMINI_API_KEY` | Optional Gemini fallback API key |
+| `GROQ_API_KEY` | Groq API key for primary AI responses |\n| `GROQ_MODEL` | Optional Groq model ID (default: `openai/gpt-oss-120b`) |\n| `GEMINI_API_KEY` | Optional Gemini fallback API key |
 | `PORT` | Optional server port (default 3000) |
 
 Never commit your `.env` file or expose the PayPal Secret in browser code.
