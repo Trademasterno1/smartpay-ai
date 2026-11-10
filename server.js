@@ -25,9 +25,7 @@ async function getPayPalAccessToken() {
     throw new Error("PayPal Sandbox credentials are not configured on the server.");
   }
   if (paypalTokenCache.token && Date.now() < paypalTokenCache.expiresAt) return paypalTokenCache.token;
-  const auth = Buffer.from(
-    process.env.PAYPAL_CLIENT_ID + ":" + process.env.PAYPAL_CLIENT_SECRET
-  ).toString("base64");
+  const auth = Buffer.from(process.env.PAYPAL_CLIENT_ID + ":" + process.env.PAYPAL_CLIENT_SECRET).toString("base64");
   const response = await fetch(PAYPAL_BASE + "/v1/oauth2/token", {
     method: "POST",
     headers: { Authorization: "Basic " + auth, "Content-Type": "application/x-www-form-urlencoded" },
@@ -112,7 +110,7 @@ app.post("/api/ai/ask", async (req, res) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: "You are SmartPay AI, a careful finance operations assistant for small businesses. Answer using only the invoice data provided. Never claim a payment was received unless its status is PAID. Distinguish demo data from real financial records. Be concise and give actionable insights." }] },
+          systemInstruction: { parts: [{ text: "You are SmartPay AI, a careful finance operations assistant for small businesses. Answer using only the invoice data provided. Never claim a payment was received unless its status is PAID. Distinguish demo data from real financial records. Be concise and give actionable insights." }] },
           contents: [{ parts: [{ text: "Invoice data: " + context + "\nUser question: " + question }] }]
         })
       }
