@@ -21,41 +21,57 @@ function renderInvoices() {
 
 async function refreshDashboard() {
   const container = $("#recoveryList");
+  if (container) container.innerHTML = '<p class="recovery-empty">Loading outstanding invoices…</p>';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
-    const [invoiceResponse, summaryResponse] = await Promise.all([
-      fetch("/api/invoices", { cache: "no-store" }),
-      fetch("/api/summary", { cache: "no-store" })
-    ]);
+    // Load invoices independently so a summary endpoint issue cannot block recovery actions.
+    const invoiceResponse = await fetch("/api/invoices", {
+      cache: "no-store",
+      signal: controller.signal,
+      headers: { "Accept": "application/json" }
+    });
     if (!invoiceResponse.ok) throw new Error("Invoices API returned HTTP " + invoiceResponse.status);
-    if (!summaryResponse.ok) throw new Error("Summary API returned HTTP " + summaryResponse.status);
     const invoiceData = await invoiceResponse.json();
-    const summary = await summaryResponse.json();
     if (!Array.isArray(invoiceData)) throw new Error("Invoices API returned an unexpected response.");
     invoices = invoiceData;
-    $("#totalValue").textContent = money(summary.totalValue, "USD");
-    $("#paidCount").textContent = summary.paidCount;
-    $("#unpaidCount").textContent = summary.unpaidCount;
-    $("#overdueCount").textContent = summary.overdueCount;
     renderInvoices();
     renderRecoveryInvoices();
+
+    // Summary cards are secondary; keep the recovery workspace usable if this request fails.
+    try {
+      const summaryResponse = await fetch("/api/summary", {
+        cache: "no-store",
+        signal: controller.signal,
+        headers: { "Accept": "application/json" }
+      });
+      if (!summaryResponse.ok) throw new Error("Summary API returned HTTP " + summaryResponse.status);
+      const summary = await summaryResponse.json();
+      $("#totalValue").textContent = money(summary.totalValue, "USD");
+      $("#paidCount").textContent = summary.paidCount;
+      $("#unpaidCount").textContent = summary.unpaidCount;
+      $("#overdueCount").textContent = summary.overdueCount;
+    } catch (summaryError) {
+      console.warn("Summary cards could not be refreshed; recovery workspace is available:", summaryError);
+    }
   } catch (error) {
     console.error("Dashboard loading failed:", error);
     if (container) {
       container.innerHTML = "";
       const message = document.createElement("p");
       message.className = "recovery-empty";
-      message.textContent = "Could not load outstanding invoices. " + (error.message || "Please check your connection.");
+      message.textContent = error.name === "AbortError"
+        ? "Loading timed out. Please check your connection and retry."
+        : "Could not load outstanding invoices. " + (error.message || "Please check your connection.");
       const retry = document.createElement("button");
       retry.type = "button";
       retry.className = "draft-button";
       retry.textContent = "Retry loading";
-      retry.addEventListener("click", () => {
-        message.textContent = "Loading outstanding invoices…";
-        retry.remove();
-        refreshDashboard();
-      });
+      retry.addEventListener("click", () => refreshDashboard());
       container.append(message, retry);
     }
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
