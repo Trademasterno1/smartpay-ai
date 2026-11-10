@@ -96,10 +96,10 @@ $("#askForm").addEventListener("submit", async event => {
 
   submitButton.disabled = true;
   submitButton.textContent = "…";
-  responseBox.textContent = "Thinking… SmartPay AI is contacting Gemini.";
+  responseBox.textContent = "Thinking… SmartPay AI is contacting the AI provider.";
 
   waitingMessageTimer = setTimeout(() => {
-    responseBox.textContent = "Still working… Gemini is taking longer than usual. Please wait a little longer.";
+    responseBox.textContent = "Still working… the AI provider is taking longer than usual. Please wait a little longer.";
   }, 8000);
 
   try {
@@ -110,7 +110,7 @@ $("#askForm").addEventListener("submit", async event => {
       signal: controller.signal
     });
     const data = await response.json();
-    if (data.answer) responseBox.textContent = data.answer;
+    if (data.answer) responseBox.textContent = data.answer + (data.provider ? "\\n\\nAI provider: " + data.provider : "");
     else if (data.summary) responseBox.textContent = (data.error || "AI is temporarily unavailable.") + "\\n\\nCurrent invoice snapshot:\\n" + JSON.stringify(data.summary, null, 2);
     else responseBox.textContent = data.error || "The AI assistant could not complete the request. Please try again.";
   } catch (error) {
