@@ -38,29 +38,32 @@ async function startPayPalCheckout(invoiceId) {
   button.disabled = true;
   button.textContent = "Loading…";
   try {
+    if (!window.paypal || !window.paypal.Buttons) throw new Error("PayPal checkout SDK is not ready. Refresh and try again.");
     const response = await fetch("/api/paypal/create-order", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ invoiceId })
     });
     const order = await response.json();
     if (!response.ok) throw new Error(order.error || "Unable to start PayPal checkout.");
-    if (!window.paypal || !window.paypal.Buttons) throw new Error("PayPal checkout SDK is not ready. Refresh and try again.");
+    const checkout = $("#paypal-checkout-placeholder");
+    checkout.innerHTML = "";
+    checkout.scrollIntoView({ behavior: "smooth", block: "center" });
     await window.paypal.Buttons({
-      createOrder: (_data, actions) => actions.order.create({}),
-      onApprove: async (_data, actions) => {
-        const details = await actions.order.capture();
+      createOrder: () => order.id,
+      onApprove: async (data) => {
         const captured = await fetch("/api/paypal/capture-order", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId: order.id })
+          body: JSON.stringify({ orderId: data.orderID })
         });
         const result = await captured.json();
-        if (!captured.ok) throw new Error(result.error || "Capture failed.");
-        $("#aiResponse").textContent = "Payment completed in PayPal Sandbox. Invoice " + invoiceId + " status: " + result.status + ".";
+        if (!captured.ok) throw new Error(result.error || "Payment capture failed.");
+        $("#aiResponse").textContent = "PayPal Sandbox payment status: " + result.status + ". Invoice: " + (result.invoiceId || invoiceId) + ".";
+        checkout.innerHTML = "<strong>Payment processed. Refreshing invoice status…</strong>";
         await refreshDashboard();
       },
+      onCancel: () => { $("#aiResponse").textContent = "Checkout was cancelled. No payment was captured."; },
       onError: error => { $("#aiResponse").textContent = "PayPal checkout error: " + error.message; }
     }).render("#paypal-checkout-placeholder");
-    $("#aiResponse").textContent = "PayPal checkout is ready. The demo checkout will open in the PayPal flow.";
   } catch (error) {
     $("#aiResponse").textContent = error.message;
   } finally {
