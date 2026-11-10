@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SmartPay AI helps small businesses track invoices and PayPal payments with an AI assistant.">
+  <title>SmartPay AI — Payment intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#"><span class="brand-mark">S</span><span>smartpay<span class="brand-ai">.ai</span></span></a>
+      <div class="workspace-label">WORKSPACE</div>
+      <a class="nav-item active" href="#"><span>▦</span> Overview</a>
+      <a class="nav-item" href="#invoices"><span>▤</span> Invoices</a>
+      <a class="nav-item" href="#assistant"><span>✳</span> AI assistant</a>
+      <div class="sidebar-bottom"><div class="sandbox-pill"><i></i> PayPal Sandbox mode</div><p>Demo workspace<br><small>Sample data · No real money</small></p></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><div class="eyebrow">MONDAY, NOVEMBER 10, 2026</div><h1>Good morning <span>✦</span></h1><p class="subhead">Here’s what’s happening with your payments.</p></div><div class="avatar">SP</div></header>
+      <section class="stats">
+        <article class="stat-card"><div class="stat-top">Total invoice value <span>↗</span></div><div class="stat-value" id="totalValue">$1,874.50</div><div class="stat-note">Across all sample invoices</div></article>
+        <article class="stat-card"><div class="stat-top">Paid invoices <span class="green">●</span></div><div class="stat-value" id="paidCount">1</div><div class="stat-note">Successfully captured</div></article>
+        <article class="stat-card"><div class="stat-top">Awaiting payment <span>◷</span></div><div class="stat-value" id="unpaidCount">2</div><div class="stat-note">Need follow-up</div></article>
+        <article class="stat-card alert-card"><div class="stat-top">Overdue <span class="red">!</span></div><div class="stat-value" id="overdueCount">1</div><div class="stat-note">Past their due date</div></article>
+      </section>
+      <section class="content-grid">
+        <article class="panel invoice-panel" id="invoices">
+          <div class="panel-heading"><div><div class="eyebrow">REVENUE OPERATIONS</div><h2>Recent invoices</h2></div><span class="tiny-tag">DEMO DATA</span></div>
+          <div class="table-wrap"><table><thead><tr><th>INVOICE / CUSTOMER</th><th>DUE DATE</th><th>AMOUNT</th><th>STATUS</th><th></th></tr></thead><tbody id="invoiceRows"></tbody></table></div>
+          <p class="table-foot">Payments are processed in PayPal Sandbox only.</p>
+        </article>
+        <article class="panel assistant-panel" id="assistant">
+          <div class="ai-heading"><div class="ai-icon">✳</div><div><div class="eyebrow">YOUR FINANCE COPILOT</div><h2>Ask SmartPay AI</h2></div><span class="live-dot"></span></div>
+          <p class="assistant-intro">Ask a question about your invoices, cash flow, or what needs attention.</p>
+          <div class="suggestions"><button class="suggestion">Which invoices are overdue?</button><button class="suggestion">What should I follow up today?</button><button class="suggestion">Summarize my payment status</button></div>
+          <form id="askForm"><label for="question">YOUR QUESTION</label><div class="ask-row"><input id="question" maxlength="1000" placeholder="Ask about your payments..." required><button type="submit" aria-label="Ask AI">↑</button></div></form>
+          <div class="ai-response" id="aiResponse" aria-live="polite">✦ Your AI insights will appear here.</div>
+          <div class="ai-disclaimer">AI-generated insights are informational. Verify financial records before acting.</div>
+        </article>
+      </section>
+      <footer>SMARTPAY AI <span>Built for the PayPal AI Hackathon · 2026</span></footer>
+    </main>
+  </div>
+</body>
+</html>
