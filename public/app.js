@@ -130,7 +130,9 @@ function renderRecoveryInvoices() {
         paymentLink.rel = "noopener noreferrer";
         paymentLink.textContent = "Open secure PayPal checkout";
         paymentLink.className = "recovery-payment-link";
-        const draftText = data.draft.replace(/\\n?\\n?Pay securely with PayPal: https:\\/\\/[^\\s]+/i, "");
+        const paymentMarker = "\\n\\nPay securely with PayPal:";
+        const paymentMarkerIndex = data.draft.indexOf(paymentMarker);
+        const draftText = paymentMarkerIndex >= 0 ? data.draft.slice(0, paymentMarkerIndex) : data.draft;
         draft.textContent = "To: " + data.email + "\\nInvoice: " + data.invoiceId + " · " + money(data.amount, data.currency) + "\\nPriority: " + data.priority + (data.daysOverdue ? " · " + data.daysOverdue + " days overdue" : "") + "\\n\\n" + draftText + "\\n\\nAI provider: " + data.provider + "\\nDraft only — not sent. Payment requires customer approval.";
         draft.appendChild(document.createElement("br"));
         draft.appendChild(paymentLink);
