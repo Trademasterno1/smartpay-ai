@@ -15,7 +15,7 @@ AI-powered payment and invoice assistant for small businesses, built for the Pay
 
 - Node.js 20 or newer
 - A PayPal Developer Sandbox REST app
-- A Gemini API key for live AI responses
+- A Groq API key for primary AI responses (Gemini is optional fallback)
 
 ## Run locally
 
@@ -23,7 +23,7 @@ AI-powered payment and invoice assistant for small businesses, built for the Pay
 2. Install dependencies with `npm install`.
 3. Copy `.env.example` to `.env`.
 4. Add your PayPal Sandbox Client ID and Secret to `.env`.
-5. Add a Gemini API key to enable the AI assistant.
+5. Add a Groq API key for the primary AI assistant. Add a Gemini API key if you want automatic fallback.
 6. Start the server with `npm start`.
 7. Open http://localhost:3000.
 
@@ -34,7 +34,7 @@ AI-powered payment and invoice assistant for small businesses, built for the Pay
 | `PAYPAL_CLIENT_ID` | PayPal Sandbox REST app client ID |
 | `PAYPAL_CLIENT_SECRET` | PayPal Sandbox secret; server-side only |
 | `PAYPAL_ENV` | Use `sandbox` for testing |
-| `GEMINI_API_KEY` | Gemini API key for AI responses |
+| `GROQ_API_KEY` | Groq API key for primary AI responses |\n| `GROQ_MODEL` | Optional Groq model ID (default: `llama-3.3-70b-versatile`) |\n| `GEMINI_API_KEY` | Optional Gemini fallback API key |
 | `PORT` | Optional server port (default 3000) |
 
 Never commit your `.env` file or expose the PayPal Secret in browser code.
@@ -51,12 +51,12 @@ Never commit your `.env` file or expose the PayPal Secret in browser code.
 
 - Invoice data is in memory and resets when the server restarts.
 - The dashboard uses sample invoice data, not a production accounting system.
-- The AI endpoint requires a configured Gemini API key.
+- The AI endpoint uses Groq when `GROQ_API_KEY` is configured and falls back to Gemini when available; otherwise Gemini is used directly.
 - This is a hackathon prototype, not a production financial service.
 
 ## Technology
 
-Node.js, Express, PayPal Orders REST API, PayPal JavaScript SDK, Google Gemini API.
+Node.js, Express, PayPal Orders REST API, PayPal JavaScript SDK, Groq API with optional Google Gemini fallback.
 
 ## License
 
