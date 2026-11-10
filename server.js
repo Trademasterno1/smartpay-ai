@@ -153,19 +153,50 @@ app.post("/api/paypal/create-order", async (req, res) => {
 app.post("/api/paypal/capture-order", async (req, res) => {
   try {
     const { orderId } = req.body;
-    if (!orderId) return res.status(400).json({ error: "Missing PayPal order ID." });
+    if (!orderId || typeof orderId !== "string") {
+      return res.status(400).json({ error: "A valid PayPal order ID is required." });
+    }
+
+    // Only capture orders that this server previously created for a known invoice.
+    const invoice = invoices.find(item => item.paypalOrderId === orderId);
+    if (!invoice) return res.status(404).json({ error: "This PayPal order is not linked to a known invoice." });
+    if (invoice.status === "PAID") {
+      return res.json({ status: "COMPLETED", invoiceId: invoice.id, alreadyPaid: true });
+    }
+
     const token = await getPayPalAccessToken();
     const response = await fetch(PAYPAL_BASE + "/v2/checkout/orders/" + encodeURIComponent(orderId) + "/capture", {
       method: "POST",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }
     });
-    const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.message || "Payment capture failed." });
-    const invoice = invoices.find(item => item.paypalOrderId === orderId);
-    if (invoice && data.status === "COMPLETED") invoice.status = "PAID";
-    res.json({ status: data.status, invoiceId: invoice ? invoice.id : null });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.message || "Payment capture failed." });
+    }
+
+    const purchaseUnit = data.purchase_units?.[0];
+    const capture = purchaseUnit?.payments?.captures?.[0];
+    const capturedAmount = capture?.amount;
+
+    // Mark the invoice paid only when PayPal confirms the exact invoice, amount and currency.
+    const matchesInvoice =
+      purchaseUnit?.reference_id === invoice.id &&
+      capturedAmount?.currency_code === invoice.currency &&
+      capturedAmount?.value === invoice.amount;
+
+    if (data.status !== "COMPLETED" || capture?.status !== "COMPLETED" || !matchesInvoice) {
+      console.error("PayPal capture did not match invoice:", invoice.id, "order:", orderId);
+      return res.status(409).json({
+        error: "PayPal has not confirmed a completed capture matching this invoice. The invoice was not marked as paid.",
+        status: data.status || "UNKNOWN"
+      });
+    }
+
+    invoice.status = "PAID";
+    res.json({ status: "COMPLETED", invoiceId: invoice.id, amount: capturedAmount.value, currency: capturedAmount.currency_code });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("PayPal capture error:", error.message);
+    res.status(500).json({ error: "Unable to verify the PayPal payment. Please check the invoice before retrying." });
   }
 });
 
