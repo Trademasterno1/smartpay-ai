@@ -86,19 +86,44 @@ $("#askForm").addEventListener("submit", async event => {
   event.preventDefault();
   const question = $("#question").value.trim();
   if (!question) return;
+
   const responseBox = $("#aiResponse");
-  responseBox.textContent = "Thinking…";
+  const submitButton = $('#askForm button[type="submit"]');
+  const originalButtonText = submitButton.textContent;
+  const controller = new AbortController();
+  let waitingMessageTimer;
+  const hardTimeout = setTimeout(() => controller.abort(), 45000);
+
+  submitButton.disabled = true;
+  submitButton.textContent = "…";
+  responseBox.textContent = "Thinking… SmartPay AI is contacting Gemini.";
+
+  waitingMessageTimer = setTimeout(() => {
+    responseBox.textContent = "Still working… Gemini is taking longer than usual. Please wait a little longer.";
+  }, 8000);
+
   try {
     const response = await fetch("/api/ai/ask", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+      signal: controller.signal
     });
     const data = await response.json();
     if (data.answer) responseBox.textContent = data.answer;
-    else if (data.summary) responseBox.textContent = data.error + "\n\nCurrent invoice snapshot:\n" + JSON.stringify(data.summary, null, 2);
-    else responseBox.textContent = data.error || "Something went wrong.";
-  } catch (_error) {
-    responseBox.textContent = "Unable to reach the assistant. Check that the server is running.";
+    else if (data.summary) responseBox.textContent = (data.error || "AI is temporarily unavailable.") + "\\n\\nCurrent invoice snapshot:\\n" + JSON.stringify(data.summary, null, 2);
+    else responseBox.textContent = data.error || "The AI assistant could not complete the request. Please try again.";
+  } catch (error) {
+    if (error.name === "AbortError") {
+      responseBox.textContent = "This request took too long and was stopped. Please try again in a moment.";
+    } else {
+      responseBox.textContent = "Unable to reach the AI assistant. Please check your connection and try again.";
+    }
+  } finally {
+    clearTimeout(hardTimeout);
+    clearTimeout(waitingMessageTimer);
+    submitButton.disabled = false;
+    submitButton.textContent = originalButtonText;
   }
 });
 
