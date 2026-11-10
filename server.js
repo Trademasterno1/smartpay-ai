@@ -20,6 +20,41 @@ const invoices = [
 
 let paypalTokenCache = { token: null, expiresAt: 0 };
 
+const GEMINI_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchGeminiWithRetry(url, options, maxRetries = 3) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (!GEMINI_RETRYABLE_STATUS.has(response.status) || attempt === maxRetries) {
+        return response;
+      }
+
+      const retryAfter = Number(response.headers.get("retry-after"));
+      const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 10000)
+        : Math.min(1000 * (2 ** attempt), 8000);
+
+      console.warn("Gemini temporarily unavailable (HTTP " + response.status + "). Retry " + (attempt + 1) + "/" + maxRetries + " in " + delayMs + "ms.");
+      await wait(delayMs);
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxRetries) break;
+      const delayMs = Math.min(1000 * (2 ** attempt), 8000);
+      console.warn("Gemini network error. Retry " + (attempt + 1) + "/" + maxRetries + " in " + delayMs + "ms.");
+      await wait(delayMs);
+    }
+  }
+
+  throw lastError || new Error("Gemini is temporarily unavailable. Please try again shortly.");
+}
+
 async function getPayPalAccessToken() {
   if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
     throw new Error("PayPal Sandbox credentials are not configured on the server.");
@@ -104,7 +139,7 @@ app.post("/api/ai/ask", async (req, res) => {
       });
     }
     const context = JSON.stringify(invoices);
-    const response = await fetch(
+    const response = await fetchGeminiWithRetry(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + encodeURIComponent(process.env.GEMINI_API_KEY),
       {
         method: "POST",
