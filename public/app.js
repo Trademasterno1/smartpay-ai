@@ -138,7 +138,6 @@ function renderFinancialDashboard() {
   $("#overdueDetail").textContent = "Overdue: " + money(overdue / 100, currency) + " · " + overdueInvoices.length + (overdueInvoices.length === 1 ? " invoice" : " invoices") + ". Included in outstanding.";
 }
 
-async 
 function renderCashFlowForecast() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
