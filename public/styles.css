@@ -414,3 +414,10 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
  .payment-history-toolbar{align-items:flex-start}.payment-history-toolbar .export-button{width:100%}
  footer span{display:block;margin-top:7px}
 }
+
+/* Secure workspace controls */
+.topbar-actions{display:flex;align-items:center;gap:12px}
+.workspace-role{display:inline-flex;align-items:center;padding:7px 10px;border:1px solid #e4eaf2;border-radius:20px;background:#f8fafd;color:#53647c;font-size:10px;font-weight:800;letter-spacing:.55px;text-transform:uppercase}
+.logout-button{min-height:34px;padding:0 12px;border:1px solid #e3e9f1;border-radius:8px;background:#fff;color:#53647c;font:700 11px "DM Sans",sans-serif;cursor:pointer}
+.logout-button:hover{border-color:#b8c8df;color:#1e4e9b}
+@media(max-width:620px){.topbar-actions{gap:6px}.workspace-role{font-size:9px;padding:6px 7px}.logout-button{padding:0 8px;font-size:10px}.topbar .avatar{display:none}}
