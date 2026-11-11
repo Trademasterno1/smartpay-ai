@@ -139,6 +139,8 @@ async function fetchWithRetry(url, options, retryableStatuses, maxRetries = 2) {
   throw lastError || new Error("AI provider is temporarily unavailable. Please try again shortly.");
 }
 
+const SMARTPAY_AI_SYSTEM_INSTRUCTION = "You are SmartPay AI, an accounts-receivable intelligence assistant for the SmartPay AI demonstration workspace. Use only facts in the supplied invoice data and clearly label recommendations. Treat PAID as collected; UNPAID and OVERDUE as outstanding. For collection-risk reviews, account for every outstanding invoice exactly once, exclude PAID invoices, rank overdue first, then due today or within 7 days, then later-due invoices. Use the supplied daysPastDue, daysUntilDue, dueDateValid, and collectionWindow fields as authoritative calculations; do not recalculate dates or call a future-due invoice overdue. Explain each risk level with specific invoice evidence and a practical next action. Use HIGH only for overdue invoices, MEDIUM for invoices due today or within 7 days, and LOW for later-due invoices; if dueDateValid is false, explicitly flag the missing/invalid date and recommend verification rather than pretending a date exists. Consider amount as financial exposure, not as evidence of default. Do not invent payment history, customer behavior, promises, probabilities, or percentages. Never invent URLs, payment dates, customer communications, fees, penalties, contract terms, or merchant policies. For a recommended payment action, use only the exact paymentUrl supplied for that invoice; if unavailable, say so. A PayPal order ID is an internal reference, never a customer payment link. Do not claim a reminder was sent or payment collected. Keep currencies separate and do not sum unlike currencies. For collection-risk reviews, return a concise, complete report with one clearly labeled entry per outstanding invoice, its ID, customer, amount and currency, status, due date, risk, evidence, and next action, followed by the top three merchant actions. If the supplied data is incomplete, state exactly what is missing.";
+
 async function askGroq(question, context) {
   const response = await fetchWithRetry("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -146,9 +148,9 @@ async function askGroq(question, context) {
     body: JSON.stringify({
       model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
       temperature: 0.2,
-      max_completion_tokens: 700,
+      max_completion_tokens: 1800,
       messages: [
-        { role: "system", content: "You are SmartPay AI, a rigorous accounts-receivable and finance operations assistant for small businesses. Use only the supplied invoice data and clearly distinguish recorded facts from recommendations. Treat PAID as settled; UNPAID or OVERDUE as not yet collected. Prioritize overdue invoices first, then invoices due soon, then later-due invoices; explain the ranking using due date, days overdue, amount, and status. Never describe an invoice as overdue unless its due date is before today or its status is OVERDUE. For every recommended collection action, use the exact secure paymentUrl supplied for that invoice. A PayPal order ID is an internal reference, NOT a customer payment link; never present it as a link or tell the merchant to send it. If no paymentUrl is supplied, say that the secure payment link is unavailable and do not invent one. Never invent URLs, payment dates, customer communications, late fees, penalties, contractual terms, or merchant policies. Do not recommend late fees unless an explicit applicable policy is present in the supplied data. Do not claim an email or reminder was sent. Give a concise, practical next action and recommend human review before sending communications. If multiple currencies exist, do not add unlike currencies together." },
+        { role: "system", content: "SMARTPAY_AI_SYSTEM_INSTRUCTION" },
         { role: "user", content: "Invoice data: " + context + "\nUser question: " + question }
       ]
     })
@@ -159,8 +161,10 @@ async function askGroq(question, context) {
     error.status = response.status;
     throw error;
   }
-  const answer = data.choices?.[0]?.message?.content;
+  const choice = data.choices?.[0];
+  const answer = choice?.message?.content;
   if (!answer) throw new Error("Groq returned an empty response.");
+  if (choice.finish_reason === "length") throw new Error("Groq response reached its output limit; trying the fallback provider.");
   return answer;
 }
 
@@ -172,7 +176,7 @@ async function askGemini(question, context) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: "You are SmartPay AI, a rigorous accounts-receivable and finance operations assistant for small businesses. Use only the supplied invoice data and clearly distinguish recorded facts from recommendations. Treat PAID as settled; UNPAID or OVERDUE as not yet collected. Prioritize overdue invoices first, then invoices due soon, then later-due invoices; explain the ranking using due date, days overdue, amount, and status. Never describe an invoice as overdue unless its due date is before today or its status is OVERDUE. For every recommended collection action, use the exact secure paymentUrl supplied for that invoice. A PayPal order ID is an internal reference, NOT a customer payment link; never present it as a link or tell the merchant to send it. If no paymentUrl is supplied, say that the secure payment link is unavailable and do not invent one. Never invent URLs, payment dates, customer communications, late fees, penalties, contractual terms, or merchant policies. Do not recommend late fees unless an explicit applicable policy is present in the supplied data. Do not claim an email or reminder was sent. Give a concise, practical next action and recommend human review before sending communications. If multiple currencies exist, do not add unlike currencies together." }] },
+        systemInstruction: { parts: [{ text: "SMARTPAY_AI_SYSTEM_INSTRUCTION" }] },
         contents: [{ parts: [{ text: "Invoice data: " + context + "\nUser question: " + question }] }]
       })
     },
@@ -184,8 +188,10 @@ async function askGemini(question, context) {
     error.status = response.status;
     throw error;
   }
-  const answer = data.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("\n");
+  const candidate = data.candidates?.[0];
+  const answer = candidate?.content?.parts?.map(part => part.text || "").join("\n");
   if (!answer) throw new Error("Gemini returned an empty response.");
+  if (candidate.finishReason === "MAX_TOKENS") throw new Error("Gemini response reached its output limit.");
   return answer;
 }
 
@@ -599,14 +605,31 @@ app.post("/api/ai/ask", async (req, res) => {
   const question = String(req.body.question || "").trim().slice(0, 1000);
   if (!question) return res.status(400).json({ error: "Please enter a question." });
   const today = new Date().toISOString().slice(0, 10);
+  const todayTime = Date.parse(today + "T00:00:00Z");
   const aiInvoices = invoices.map(invoice => {
-    const dueDate = String(invoice.dueDate || "");
-    const daysOverdue = /^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)
-      ? Math.max(0, Math.floor((Date.parse(today + "T00:00:00Z") - Date.parse(dueDate + "T00:00:00Z")) / 86400000))
-      : 0;
+    const dueDate = String(invoice.dueDate || "").trim();
+    const dueDateValid = /^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate) &&
+      !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) &&
+      new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
+    const dueTime = dueDateValid ? Date.parse(dueDate + "T00:00:00Z") : NaN;
+    const dayDifference = dueDateValid ? Math.round((dueTime - todayTime) / 86400000) : null;
+    const daysPastDue = dayDifference !== null ? Math.max(0, -dayDifference) : null;
+    const daysUntilDue = dayDifference !== null ? Math.max(0, dayDifference) : null;
+    const collectionWindow = !dueDateValid ? "DATE_REVIEW_REQUIRED"
+      : dayDifference < 0 || invoice.status === "OVERDUE" ? "OVERDUE"
+      : dayDifference <= 7 ? "DUE_WITHIN_7_DAYS" : "UPCOMING";
     return {
-      ...invoice,
-      daysOverdue,
+      id: invoice.id,
+      customer: invoice.customer,
+      amount: invoice.amount,
+      currency: invoice.currency || "USD",
+      status: invoice.status,
+      dueDate: dueDateValid ? dueDate : null,
+      dueDateValid,
+      daysPastDue,
+      daysUntilDue,
+      collectionWindow,
+      lineItems: Array.isArray(invoice.lineItems) ? invoice.lineItems : [],
       paymentUrl: invoice.status === "PAID" || !invoice.paymentToken
         ? null
         : req.protocol + "://" + req.get("host") + "/pay/" + encodeURIComponent(invoice.paymentToken)
