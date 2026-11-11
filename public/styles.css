@@ -626,4 +626,5 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 .monthly-chart-months{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;min-width:0}
 .monthly-chart-months[data-months="12"]{min-width:680px}
 .monthly-chart-months .month-bars{height:142px}
+.monthly-chart-months .month-bar-slot{width:min(20px,28%)}
 @media(max-width:480px){.monthly-chart-months{gap:4px}.monthly-chart-months .month-bars{height:118px;gap:3px}}
