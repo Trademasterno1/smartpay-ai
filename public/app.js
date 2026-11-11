@@ -138,7 +138,88 @@ function renderFinancialDashboard() {
   $("#overdueDetail").textContent = "Overdue: " + money(overdue / 100, currency) + " · " + overdueInvoices.length + (overdueInvoices.length === 1 ? " invoice" : " invoices") + ". Included in outstanding.";
 }
 
-async function refreshMonthlyAnalytics() {
+async 
+function renderCashFlowForecast() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dateOffset = days => {
+    const date = new Date(today);
+    date.setDate(date.getDate() + days);
+    return date;
+  };
+  const dateKey = date => date.toISOString().slice(0, 10);
+  const openInvoices = invoices.filter(invoice => invoice.status !== "PAID");
+  const currencies = [...new Set(openInvoices.map(invoice => invoice.currency || "USD"))];
+  const container = $("#cashFlowForecast");
+  if (!container) return;
+
+  const amountFor = list => list.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount || 0) * 100), 0) / 100;
+  const groups = currencies.map(currency => {
+    const items = openInvoices.filter(invoice => (invoice.currency || "USD") === currency);
+    const overdue = items.filter(invoice => invoice.status === "OVERDUE" || invoice.dueDate < dateKey(today));
+    const next7 = items.filter(invoice => invoice.dueDate >= dateKey(today) && invoice.dueDate <= dateKey(dateOffset(7)));
+    const days8to30 = items.filter(invoice => invoice.dueDate > dateKey(dateOffset(7)) && invoice.dueDate <= dateKey(dateOffset(30)));
+    const beyond30 = items.filter(invoice => invoice.dueDate > dateKey(dateOffset(30)));
+    return { currency, items, overdue, next7, days8to30, beyond30 };
+  });
+
+  if (!openInvoices.length) {
+    container.innerHTML = '<p class="chart-empty">No outstanding invoices. Your recorded receivables are fully settled.</p>';
+    return;
+  }
+
+  container.innerHTML = groups.map(group => {
+    const card = (label, value, note, extraClass = "") => `
+      <article class="stat-card ${extraClass}">
+        <div class="stat-top">${label}</div>
+        <div class="stat-value">${escapeHTML(money(amountFor(value), group.currency))}</div>
+        <div class="stat-note">${value.length} invoice${value.length === 1 ? "" : "s"} · ${note}</div>
+      </article>`;
+    const total7 = amountFor(group.overdue) + amountFor(group.next7);
+    const total30 = total7 + amountFor(group.days8to30);
+    const max = Math.max(1, total30);
+    const overdueWidth = Math.min(100, amountFor(group.overdue) / max * 100);
+    const next7Width = Math.min(100 - overdueWidth, amountFor(group.next7) / max * 100);
+    const days8Width = Math.max(0, 100 - overdueWidth - next7Width);
+    return `
+      <div class="forecast-currency-group">
+        <div class="eyebrow">${escapeHTML(group.currency)} · OUTSTANDING RECEIVABLES</div>
+        <div class="stats forecast-stats">
+          ${card("Overdue now", group.overdue, "requires follow-up", "alert-card")}
+          ${card("Due in 7 days", group.next7, "scheduled by due date")}
+          ${card("Due in 8–30 days", group.days8to30, "scheduled by due date")}
+          ${card("Beyond 30 days", group.beyond30, "later receivables")}
+        </div>
+        <div class="forecast-total-row">
+          <span>Scheduled / overdue through next 30 days</span>
+          <strong>${escapeHTML(money(total30, group.currency))}</strong>
+        </div>
+        <div class="collection-bar forecast-bar" role="img" aria-label="Overdue and upcoming receivables distribution">
+          <span class="collection-bar-paid" style="width:${overdueWidth}%"></span>
+          <span class="collection-bar-open" style="width:${next7Width}%"></span>
+          <span class="forecast-bar-later" style="width:${days8Width}%"></span>
+        </div>
+        <div class="monthly-chart-legend forecast-legend">
+          <span><i class="legend-dot red-dot"></i> Overdue</span>
+          <span><i class="legend-dot paid-dot"></i> Due in 7 days</span>
+          <span><i class="legend-dot invoice-dot"></i> Due in 8–30 days</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  const overdueAll = openInvoices.filter(invoice => invoice.status === "OVERDUE" || invoice.dueDate < dateKey(today));
+  const soonAll = openInvoices.filter(invoice => invoice.dueDate >= dateKey(today) && invoice.dueDate <= dateKey(dateOffset(7)));
+  const recommendation = document.createElement("p");
+  recommendation.className = "overdue-detail";
+  recommendation.textContent = overdueAll.length
+    ? "Priority: review " + overdueAll.length + " overdue invoice(s) first, then prepare reminders for invoices due within 7 days (" + soonAll.length + ")."
+    : soonAll.length
+      ? "Preventive action: no invoices are overdue. Review the " + soonAll.length + " invoice(s) due within 7 days."
+      : "No invoices are currently overdue or due within the next 7 days. Monitor upcoming due dates.";
+  container.appendChild(recommendation);
+}
+
+function refreshMonthlyAnalytics() {
   const container = $("#monthlyChart");
   if (!container) return;
   const months = $("#monthlyRange")?.value === "12" ? 12 : 6;
@@ -317,6 +398,7 @@ async function refreshDashboard() {
     await refreshPaymentHistory();
 
     renderFinancialDashboard();
+    renderCashFlowForecast();
     await refreshMonthlyAnalytics();
   } catch (error) {
     console.error("Dashboard loading failed:", error);
