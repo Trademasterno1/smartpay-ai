@@ -560,7 +560,7 @@ function renderInvoices() {
       <td>${escapeHTML(invoice.dueDate)}</td>
       <td class="amount">${money(invoice.amount, invoice.currency)}</td>
       <td><span class="status ${escapeHTML(getInvoiceDisplayStatus(invoice))}">${escapeHTML(getInvoiceDisplayStatus(invoice))}</span></td>
-      <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
+      <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button><button class="delete-button" data-delete-invoice="${escapeHTML(invoice.id)}">Delete</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
     </tr>`).join("");
   if (!visibleInvoices.length) $("#invoiceRows").innerHTML = '<tr><td colspan="5">No matching invoices.</td></tr>';
   $("#invoiceRows").querySelectorAll("[data-invoice]").forEach(button => {
@@ -568,6 +568,24 @@ function renderInvoices() {
   });
   $("#invoiceRows").querySelectorAll("[data-edit-invoice]").forEach(button => {
     button.addEventListener("click", () => startEditInvoice(button.dataset.editInvoice));
+  });
+  $("#invoiceRows").querySelectorAll("[data-delete-invoice]").forEach(button => {
+    button.addEventListener("click", async () => {
+      const invoiceId = button.dataset.deleteInvoice;
+      const invoice = invoices.find(item => item.id === invoiceId);
+      if (!invoice || !window.confirm("Delete unpaid invoice " + invoiceId + " for " + invoice.customer + "? This cannot be undone.")) return;
+      button.disabled = true;
+      button.textContent = "Deleting…";
+      try {
+        const response = await fetch("/api/invoices/" + encodeURIComponent(invoiceId), { method: "DELETE", headers: { "Accept": "application/json" } });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not delete invoice.");
+        await refreshDashboard();
+      } catch (error) {
+        window.alert(error.message || "Could not delete invoice.");
+        renderInvoices();
+      }
+    });
   });
   $("#invoiceRows").querySelectorAll("[data-pdf-invoice]").forEach(button => {
     button.addEventListener("click", () => openInvoicePDF(button.dataset.pdfInvoice));
