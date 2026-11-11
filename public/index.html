@@ -37,8 +37,12 @@
           <div><div class="eyebrow">SMART FOLLOW-UP · LIVE INVOICE DATA</div><h2 id="actionCenterTitle">AI Action Center</h2></div>
           <span class="tiny-tag" id="actionCenterCount">Checking invoices…</span>
         </div>
-        <p class="action-center-intro">A prioritized view of overdue invoices and invoices due within 48 hours. Recommendations are based on your invoice records; you stay in control of every reminder and payment.</p>
+        <p class="action-center-intro">Your AI-powered daily receivables briefing, with clear next steps. Review every recommendation before taking action.</p>
+        <div class="action-center-brief-tools"><button type="button" class="action-center-primary" id="generateActionBriefButton">Generate AI Daily Brief</button><span id="actionBriefProvider" role="status">Uses your live invoice records</span></div>
+        <div class="action-center-ai-brief" id="actionCenterAiBrief" aria-live="polite"><p>Generate a concise AI review of overdue, upcoming and recently paid invoices.</p></div>
+        <h3 class="action-center-subtitle">Recommended actions</h3>
         <div class="action-center-list" id="actionCenterList" aria-live="polite"><p class="action-center-empty">Loading follow-ups…</p></div>
+        <div class="action-center-paid" id="actionCenterPaidList"></div>
       </section>
       <section class="panel financial-overview" aria-labelledby="financialOverviewTitle">
         <div class="panel-heading"><div><div class="eyebrow">CASH FLOW SNAPSHOT</div><h2 id="financialOverviewTitle">Collection overview</h2></div><span class="tiny-tag">LIVE INVOICE DATA</span></div>
