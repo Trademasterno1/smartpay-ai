@@ -618,20 +618,24 @@ app.post("/api/invoices", async (req, res) => {
     const dueDate = String(req.body.dueDate || "").trim();
     const validatedItems = validateInvoiceLineItems(req.body.lineItems);
     if (validatedItems.error) return res.status(400).json({ error: validatedItems.error });
-    const amount = Number(validatedItems.amount);
+    const subtotal = Number(validatedItems.amount);
+    const taxRate = Number(req.body.taxRate ?? 0);
+    if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) return res.status(400).json({ error: "Tax must be a percentage between 0 and 100." });
+    const taxCents = Math.round(subtotal * taxRate);
+    const amount = (Math.round(subtotal * 100) + taxCents) / 100;
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
     if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) return res.status(400).json({ error: "Enter a valid customer email address, or leave it blank." });
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
+    if (!Number.isFinite(subtotal) || subtotal <= 0 || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const invoice = {
       id: "INV-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomBytes(3).toString("hex").toUpperCase(),
-      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...activeMerchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null,
+      customer, email, amount: amount.toFixed(2), taxRate: taxRate.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...activeMerchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null,
       paymentToken: crypto.randomBytes(32).toString("hex")
     };
     await pool.query(
-      `INSERT INTO ${workspaceTable("invoices")} (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile, payment_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)`,
-      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems), JSON.stringify(invoice.merchantProfile), invoice.paymentToken]
+      `INSERT INTO ${workspaceTable("invoices")} (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile, payment_token, tax_rate) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12)`,
+      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems), JSON.stringify(invoice.merchantProfile), invoice.paymentToken, invoice.taxRate]
     );
     invoices.push(invoice);
     console.log("Created invoice " + invoice.id + " and saved it to PostgreSQL.");
@@ -657,19 +661,23 @@ app.put("/api/invoices/:id", async (req, res) => {
     const dueDate = String(req.body.dueDate || "").trim();
     const validatedItems = validateInvoiceLineItems(req.body.lineItems);
     if (validatedItems.error) return res.status(400).json({ error: validatedItems.error });
-    const amount = Number(validatedItems.amount);
+    const subtotal = Number(validatedItems.amount);
+    const taxRate = Number(req.body.taxRate ?? 0);
+    if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) return res.status(400).json({ error: "Tax must be a percentage between 0 and 100." });
+    const taxCents = Math.round(subtotal * taxRate);
+    const amount = (Math.round(subtotal * 100) + taxCents) / 100;
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
     if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) return res.status(400).json({ error: "Enter a valid customer email address, or leave it blank." });
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
+    if (!Number.isFinite(subtotal) || subtotal <= 0 || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const updated = await pool.query(
-      `UPDATE ${workspaceTable("invoices")} SET customer=$2, email=$3, amount=$4, due_date=$5, line_items=$6::jsonb, updated_at=NOW()
+      `UPDATE ${workspaceTable("invoices")} SET customer=$2, email=$3, amount=$4, tax_rate=$5, due_date=$6, line_items=$7::jsonb, updated_at=NOW()
        WHERE id=$1 AND status <> 'PAID' AND paypal_order_id IS NULL
-       RETURNING id, customer, email, amount::text, currency, status,
+       RETURNING id, customer, email, amount::text, currency, status, tax_rate::text AS "taxRate",
                  to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
                  line_items AS "lineItems"`,
-      [invoice.id, customer, email, amount.toFixed(2), dueDate, JSON.stringify(validatedItems.items)]
+      [invoice.id, customer, email, amount.toFixed(2), taxRate.toFixed(2), dueDate, JSON.stringify(validatedItems.items)]
     );
     if (!updated.rowCount) return res.status(409).json({ error: "Invoice could not be edited. It may have been paid or linked to a PayPal order." });
     Object.assign(invoice, updated.rows[0]);
@@ -748,7 +756,7 @@ app.get("/api/public-invoices/:token", (req, res) => {
   if (!invoice) return res.status(404).json({ error: "This invoice link is invalid or has expired." });
   return res.json({
     id: invoice.id, customer: invoice.customer, amount: invoice.amount, currency: invoice.currency,
-    status: invoice.status, dueDate: invoice.dueDate, lineItems: invoice.lineItems || [],
+    taxRate: Number(invoice.taxRate || 0), status: invoice.status, dueDate: invoice.dueDate, lineItems: invoice.lineItems || [],
     merchantProfile: invoice.merchantProfile || {}
   });
 });
