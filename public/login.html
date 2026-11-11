@@ -52,7 +52,7 @@
       event.preventDefault();
       button.disabled=true;button.textContent="Verifying…";message.textContent="";
       try{
-        const response=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},credentials:"same-origin",body:JSON.stringify({username:form.username.value.trim(),password:form.password.value})});
+        const response=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},credentials:"same-origin",body:JSON.stringify({username:document.getElementById("username").value.trim(),password:document.getElementById("password").value})});
         const data=await response.json().catch(()=>({}));
         if(!response.ok)throw new Error(data.error||"Unable to sign in. Please try again.");
         window.location.replace("/");
