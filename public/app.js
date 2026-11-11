@@ -7,94 +7,113 @@ function escapeHTML(value) {
 
 function renderRiskReview(container, raw, provider) {
   const source = String(raw || "");
-  const clean = value => String(value || "").replace(/\*\*/g, "").trim();
   const styleId = "smartpay-risk-review-styles";
   if (!document.getElementById(styleId)) {
     const style = document.createElement("style");
     style.id = styleId;
-    style.textContent = ".risk-review{display:grid;gap:14px;margin-top:16px}.risk-review-intro{color:#64748b;line-height:1.65}.risk-invoice-card{background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:18px;box-shadow:0 5px 18px rgba(23,36,58,.045)}.risk-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.risk-card-title{font-size:15px;font-weight:800;color:#17243a;overflow-wrap:anywhere}.risk-level{font-size:10px;font-weight:800;letter-spacing:.6px;padding:6px 9px;border-radius:20px;white-space:nowrap}.risk-level.HIGH{background:#fff0f0;color:#b6424a}.risk-level.MEDIUM{background:#fff7e7;color:#9b6800}.risk-level.LOW{background:#eaf7f0;color:#168257}.risk-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}.risk-fact{background:#f7f9fc;border-radius:9px;padding:10px;min-width:0}.risk-fact span{display:block;color:#8290a3;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}.risk-fact strong{font-size:13px;overflow-wrap:anywhere}.risk-copy{font-size:13px;line-height:1.65;color:#42516a;margin:10px 0 0}.risk-copy b{display:block;color:#17243a;font-size:10px;letter-spacing:.7px;text-transform:uppercase;margin-bottom:4px}.risk-action{background:#f2f7ff;border-left:3px solid #1769e0;border-radius:7px;padding:12px;margin-top:12px;color:#243b5a;font-size:13px;line-height:1.65}.risk-action b{display:block;font-size:10px;letter-spacing:.7px;margin-bottom:4px}.risk-action a{display:inline-block;margin-top:6px;color:#1769e0;font-weight:700;overflow-wrap:anywhere}.risk-top-actions{background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:16px}.risk-top-actions h4{margin:0 0 10px;font-size:13px}.risk-top-actions ol{margin:0;padding-left:20px;color:#42516a;font-size:13px;line-height:1.7}.risk-provider{color:#8290a3;font-size:11px;margin-top:4px}@media(max-width:520px){.risk-facts{grid-template-columns:1fr}.risk-card-head{align-items:center}}";
+    style.textContent = ".risk-review{display:grid;gap:12px;margin-top:14px;min-width:0;width:100%;max-width:100%;box-sizing:border-box}.risk-review-intro{color:#64748b;line-height:1.6;font-size:13px;margin:0;overflow-wrap:anywhere}.risk-invoice-card{background:#fff;border:1px solid #e5eaf1;border-radius:13px;padding:15px;box-shadow:0 5px 18px rgba(23,36,58,.045);min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden}.risk-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;min-width:0}.risk-card-title{font-size:14px;font-weight:800;color:#17243a;overflow-wrap:anywhere;min-width:0;flex:1}.risk-level{font-size:10px;font-weight:800;letter-spacing:.5px;padding:6px 8px;border-radius:20px;white-space:nowrap;flex:0 0 auto}.risk-level.HIGH{background:#fff0f0;color:#b6424a}.risk-level.MEDIUM{background:#fff7e7;color:#9b6800}.risk-level.LOW{background:#eaf7f0;color:#168257}.risk-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 12px}.risk-fact{background:#f7f9fc;border-radius:9px;padding:9px;min-width:0;overflow:hidden}.risk-fact span{display:block;color:#8290a3;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.risk-fact strong{display:block;font-size:12px;line-height:1.45;overflow-wrap:anywhere;word-break:break-word}.risk-copy{font-size:12px;line-height:1.6;color:#42516a;margin:9px 0 0;overflow-wrap:anywhere;word-break:break-word}.risk-copy b{display:block;color:#17243a;font-size:10px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:4px}.risk-action{background:#f2f7ff;border-left:3px solid #1769e0;border-radius:7px;padding:11px;margin-top:11px;color:#243b5a;font-size:12px;line-height:1.6;overflow-wrap:anywhere;word-break:break-word}.risk-action b{display:block;font-size:10px;letter-spacing:.6px;margin-bottom:4px}.risk-action a{display:block;margin-top:7px;color:#1769e0;font-weight:700;overflow-wrap:anywhere;word-break:break-all}.risk-top-actions{background:#fff;border:1px solid #e5eaf1;border-radius:13px;padding:14px;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden}.risk-top-actions h4{margin:0 0 9px;font-size:12px}.risk-top-actions ol{margin:0;padding-left:19px;color:#42516a;font-size:12px;line-height:1.6;overflow-wrap:anywhere;word-break:break-word}.risk-top-actions li+li{margin-top:8px}.risk-provider{color:#8290a3;font-size:10px;margin-top:3px;overflow-wrap:anywhere}@media(max-width:520px){.risk-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.risk-card-head{align-items:flex-start}.risk-invoice-card,.risk-top-actions{padding:12px}.risk-card-title{font-size:13px}.risk-copy,.risk-action,.risk-top-actions ol{font-size:11px}.forecast-ai-review,.forecast-ai-result{min-width:0;max-width:100%;width:100%;box-sizing:border-box;overflow:hidden}.forecast-ai-review strong{font-size:13px;line-height:1.4;overflow-wrap:anywhere}.forecast-ai-review p{font-size:11px;line-height:1.55;overflow-wrap:anywhere}.forecast-ai-review button{max-width:100%;white-space:normal;line-height:1.35}}";
     document.head.appendChild(style);
   }
   container.replaceChildren();
   const wrapper = document.createElement("div");
   wrapper.className = "risk-review";
-  const introText = clean(source.split(/INVOICE\s*:/i)[0]).replace(/[·\s]+$/, "");
-  if (introText) {
-    const intro = document.createElement("p");
-    intro.className = "risk-review-intro";
-    intro.textContent = introText;
-    wrapper.appendChild(intro);
-  }
-  const invoiceSections = source.split(/(?=INVOICE\s*:)/i).slice(1);
   const fields = ["INVOICE", "CUSTOMER", "AMOUNT", "STATUS", "DUE DATE", "TIMING", "RISK", "EVIDENCE", "NEXT ACTION"];
-  let prioritiesText = "";
-  invoiceSections.forEach(sectionText => {
-    const stop = sectionText.search(/---\s*Prioritized Merchant Actions|Prioritized Merchant Actions|AI provider:/i);
-    const invoiceText = stop >= 0 ? sectionText.slice(0, stop) : sectionText;
-    if (!/^\s*INV[-_]/i.test(invoiceText.replace(/^INVOICE\s*:\s*/i, ""))) {
-      if (stop >= 0) prioritiesText = sectionText.slice(stop);
-      return;
-    }
+  const fieldPattern = fields.map(name => name.replace(/\s+/g, "\\s+")).join("|");
+  const sections = source.split(/(?=INVOICE\s*:)/i).slice(1);
+  const topActionMatch = source.match(/Prioritized\s+Merchant\s+Actions\s*([\s\S]*?)(?=INVOICE\s*:|$)/i);
+  let priorityText = topActionMatch ? topActionMatch[1] : "";
+  if (!priorityText) {
+    const laterMatch = source.match(/---\s*Prioritized\s+Merchant\s+Actions\s*---?\s*([\s\S]*)$/i);
+    if (laterMatch) priorityText = laterMatch[1];
+  }
+  const cleanPriority = priorityText.replace(/^\s*[-—:]+\s*/, "").trim();
+  const priorityItems = [...cleanPriority.matchAll(/(?:^|\s)([1-3])\.\s+([\s\S]*?)(?=\s+[1-3]\.\s+|$)/g)];
+  if (priorityItems.length) {
+    const section = document.createElement("section");
+    section.className = "risk-top-actions";
+    const heading = document.createElement("h4");
+    heading.textContent = "Prioritized merchant actions";
+    const list = document.createElement("ol");
+    priorityItems.forEach(match => {
+      const item = document.createElement("li");
+      item.textContent = match[2].trim();
+      list.appendChild(item);
+    });
+    section.append(heading, list);
+    wrapper.appendChild(section);
+  }
+  let rendered = 0;
+  sections.forEach(sectionText => {
     const values = {};
     fields.forEach((field, index) => {
-      const following = fields.slice(index + 1).map(name => name.replace(/\s+/g, "\\s+")).join("|");
-      const lookahead = following ? "(?=;\\s*(?:" + following + ")\\s*:|$)" : "$";
+      const nextFields = fields.slice(index + 1).map(name => name.replace(/\s+/g, "\\s+")).join("|");
+      const lookahead = nextFields ? "(?=;\\s*(?:" + nextFields + ")\\s*:|$)" : "$";
       const pattern = new RegExp("(?:^|;)\\s*" + field.replace(/\s+/g, "\\s+") + "\\s*:\\s*([\\s\\S]*?)" + lookahead, "i");
-      const match = invoiceText.match(pattern);
-      if (match) values[field] = match[1].trim().replace(/[;\s]+$/, "");
+      const match = sectionText.match(pattern);
+      if (match) values[field] = match[1].trim().replace(/[;\\s]+$/, "");
     });
+    const invoiceId = values.INVOICE || "";
+    if (!/^[A-Z0-9][A-Z0-9_-]*\d/i.test(invoiceId)) return;
     const card = document.createElement("article");
     card.className = "risk-invoice-card";
-    const head = document.createElement("div"); head.className = "risk-card-head";
-    const title = document.createElement("div"); title.className = "risk-card-title";
-    title.textContent = (values.INVOICE || "Invoice") + " · " + (values.CUSTOMER || "Customer not recorded");
+    const head = document.createElement("div");
+    head.className = "risk-card-head";
+    const title = document.createElement("div");
+    title.className = "risk-card-title";
+    title.textContent = invoiceId + " · " + (values.CUSTOMER || "Customer not recorded");
+    const riskValue = (values.RISK || "UNRATED").toUpperCase();
     const risk = document.createElement("span");
-    const riskValue = (values.RISK || "LOW").toUpperCase();
     risk.className = "risk-level " + (["HIGH", "MEDIUM", "LOW"].includes(riskValue) ? riskValue : "LOW");
-    risk.textContent = riskValue + " RISK";
+    risk.textContent = riskValue + (riskValue === "UNRATED" ? "" : " RISK");
     head.append(title, risk);
-    const facts = document.createElement("div"); facts.className = "risk-facts";
+    const facts = document.createElement("div");
+    facts.className = "risk-facts";
     [["Amount", values.AMOUNT], ["Status", values.STATUS], ["Due date", values["DUE DATE"]], ["Timing", values.TIMING]].forEach(([label, value]) => {
-      const fact = document.createElement("div"); fact.className = "risk-fact";
-      const caption = document.createElement("span"); caption.textContent = label;
-      const strong = document.createElement("strong"); strong.textContent = value || "Not recorded";
-      fact.append(caption, strong); facts.appendChild(fact);
+      const fact = document.createElement("div");
+      fact.className = "risk-fact";
+      const caption = document.createElement("span");
+      caption.textContent = label;
+      const strong = document.createElement("strong");
+      strong.textContent = value || "Not recorded";
+      fact.append(caption, strong);
+      facts.appendChild(fact);
     });
-    const evidence = document.createElement("p"); evidence.className = "risk-copy";
-    const evidenceLabel = document.createElement("b"); evidenceLabel.textContent = "Evidence for risk";
+    const evidence = document.createElement("p");
+    evidence.className = "risk-copy";
+    const evidenceLabel = document.createElement("b");
+    evidenceLabel.textContent = "Evidence for risk";
     evidence.append(evidenceLabel, document.createTextNode(values.EVIDENCE || "No evidence supplied."));
-    const action = document.createElement("div"); action.className = "risk-action";
-    const actionLabel = document.createElement("b"); actionLabel.textContent = "Next practical action";
-    action.append(actionLabel, document.createTextNode(values["NEXT ACTION"] || "Review this invoice."));
-    const paymentUrls = (values["NEXT ACTION"] || "").match(/https?:\/\/[^\s]+/gi) || [];
+    const action = document.createElement("div");
+    action.className = "risk-action";
+    const actionLabel = document.createElement("b");
+    actionLabel.textContent = "Next practical action";
+    const nextAction = values["NEXT ACTION"] || "Review this invoice.";
+    action.append(actionLabel, document.createTextNode(nextAction.replace(/https?:\/\/\S+/gi, "").trim()));
+    const paymentUrls = nextAction.match(/https?:\/\/[^\s]+/gi) || [];
     paymentUrls.forEach(url => {
-      const link = document.createElement("a"); link.href = url.replace(/[.,)]+$/, "");
-      link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = "Open secure payment link";
+      const link = document.createElement("a");
+      link.href = url.replace(/[.,)]+$/, "");
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Open secure payment link";
       action.appendChild(link);
     });
     card.append(head, facts, evidence, action);
     wrapper.appendChild(card);
-    if (stop >= 0) prioritiesText = sectionText.slice(stop);
+    rendered += 1;
   });
-  if (prioritiesText) {
-    const section = document.createElement("section"); section.className = "risk-top-actions";
-    const heading = document.createElement("h4"); heading.textContent = "Prioritized merchant actions";
-    const list = document.createElement("ol");
-    const actionText = prioritiesText.replace(/^---\s*/, "").replace(/^Prioritized Merchant Actions\s*/i, "");
-    const items = [...actionText.matchAll(/(?:^|\s)([123])\.\s+([\s\S]*?)(?=\s+[123]\.\s+|$)/g)];
-    items.forEach(match => { const li = document.createElement("li"); li.textContent = match[2].trim(); list.appendChild(li); });
-    if (list.children.length) { section.append(heading, list); wrapper.appendChild(section); }
+  if (!rendered) {
+    const fallback = document.createElement("p");
+    fallback.className = "risk-review-intro";
+    fallback.textContent = "The AI response could not be formatted into invoice cards. Please run the analysis again.";
+    wrapper.appendChild(fallback);
   }
-  if (!wrapper.querySelector(".risk-invoice-card")) {
-    const fallback = document.createElement("p"); fallback.className = "risk-review-intro";
-    fallback.textContent = clean(source); wrapper.appendChild(fallback);
-  }
-  const footer = document.createElement("div"); footer.className = "risk-provider";
+  const footer = document.createElement("div");
+  footer.className = "risk-provider";
   footer.textContent = "AI provider: " + (provider || "Not reported");
   wrapper.appendChild(footer);
   container.appendChild(wrapper);
 }
-
 
 function renderRiskFallback(container, ranked, provider, missingInvoiceIds = []) {
   const styleId = "smartpay-risk-review-styles";
