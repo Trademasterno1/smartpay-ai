@@ -371,18 +371,72 @@ function renderRecoveryInvoices() {
   const container = $("#recoveryList");
   container.innerHTML = "";
   const outstanding = invoices.filter(invoice => invoice.status !== "PAID");
-  if (!outstanding.length) {
+  const today = new Date().toISOString().slice(0, 10);
+  const daysLateFor = invoice => Math.max(0, Math.floor(
+    (Date.parse(today + "T00:00:00Z") - Date.parse(invoice.dueDate + "T00:00:00Z")) / 86400000
+  ));
+  const overdue = outstanding.filter(invoice => invoice.status === "OVERDUE" || daysLateFor(invoice) > 0);
+  const overdueCents = overdue.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+  const outstandingCents = outstanding.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+  const aging31 = overdue.filter(invoice => daysLateFor(invoice) >= 31);
+  const aging8 = overdue.filter(invoice => daysLateFor(invoice) >= 8 && daysLateFor(invoice) <= 30);
+
+  const insights = document.createElement("div");
+  insights.className = "recovery-insights";
+  const metrics = [
+    { label: "Outstanding balance", value: money(outstandingCents / 100, "USD") },
+    { label: "Overdue exposure", value: money(overdueCents / 100, "USD") },
+    { label: "Overdue invoices", value: String(overdue.length) },
+    { label: "31+ days overdue", value: String(aging31.length) }
+  ];
+  metrics.forEach(metric => {
+    const item = document.createElement("div");
+    item.className = "recovery-insight";
+    const label = document.createElement("span");
+    label.textContent = metric.label;
+    const value = document.createElement("strong");
+    value.textContent = metric.value;
+    item.append(label, value);
+    insights.appendChild(item);
+  });
+  container.appendChild(insights);
+
+  const sorted = [...outstanding].sort((left, right) => {
+    const leftLate = daysLateFor(left);
+    const rightLate = daysLateFor(right);
+    const leftPriority = leftLate > 0 || left.status === "OVERDUE" ? 3
+      : (Date.parse(left.dueDate + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000 <= 3 ? 2 : 1;
+    const rightPriority = rightLate > 0 || right.status === "OVERDUE" ? 3
+      : (Date.parse(right.dueDate + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000 <= 3 ? 2 : 1;
+    return rightPriority - leftPriority || rightLate - leftLate || Number(right.amount) - Number(left.amount);
+  });
+
+  const recommendation = document.createElement("p");
+  recommendation.className = "recovery-recommendation";
+  if (overdue.length) {
+    const oldest = [...overdue].sort((a, b) => daysLateFor(b) - daysLateFor(a) || Number(b.amount) - Number(a.amount))[0];
+    recommendation.textContent = "Recommended next action: follow up first with " + oldest.customer + " (" + oldest.id + "), " +
+      (daysLateFor(oldest) ? daysLateFor(oldest) + " days overdue" : "marked overdue") +
+      ". " + (aging31.length ? aging31.length + " invoice(s) are over 30 days late; review these as a priority." : "Keep the reminder polite and request a confirmed payment date.");
+  } else if (outstanding.length) {
+    recommendation.textContent = "Recommended next action: send a friendly pre-due reminder for the invoice due soonest. No invoices are currently overdue.";
+  } else {
+    recommendation.textContent = "All invoices are paid. No recovery actions are needed.";
+  }
+  container.appendChild(recommendation);
+
+  if (!sorted.length) {
     const empty = document.createElement("p");
     empty.className = "recovery-empty";
-    empty.textContent = "All sample invoices are paid. No recovery actions are needed.";
+    empty.textContent = "All invoices are paid. No recovery actions are needed.";
     container.appendChild(empty);
     return;
   }
-  const today = new Date().toISOString().slice(0, 10);
-  outstanding.sort((left, right) => left.dueDate.localeCompare(right.dueDate));
-  outstanding.forEach(invoice => {
-    const daysLate = Math.max(0, Math.floor((Date.parse(today + "T00:00:00Z") - Date.parse(invoice.dueDate + "T00:00:00Z")) / 86400000));
-    const priority = daysLate > 0 || invoice.status === "OVERDUE" ? "HIGH" : (Date.parse(invoice.dueDate + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000 <= 3 ? "MEDIUM" : "LOW";
+
+  sorted.forEach(invoice => {
+    const daysLate = daysLateFor(invoice);
+    const daysUntilDue = Math.ceil((Date.parse(invoice.dueDate + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000);
+    const priority = daysLate > 0 || invoice.status === "OVERDUE" ? "HIGH" : daysUntilDue <= 3 ? "MEDIUM" : "LOW";
     const card = document.createElement("article");
     card.className = "recovery-item";
     const details = document.createElement("div");
