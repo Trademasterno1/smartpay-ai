@@ -216,6 +216,17 @@ async function initializeDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Illustrative historical collections live outside the PayPal payment ledger.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS judge_demo_collections (
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL UNIQUE REFERENCES judge_invoices(id),
+      amount NUMERIC(12,2) NOT NULL,
+      currency TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT 'SIMULATED DEMO COLLECTION',
+      created_at TIMESTAMPTZ NOT NULL
+    )
+  `);
   const judgeProfileResult = await pool.query(`SELECT profile FROM judge_merchant_settings WHERE id = 1`);
   if (judgeProfileResult.rowCount) judgeMerchantProfile = { ...judgeMerchantProfile, ...judgeProfileResult.rows[0].profile };
   else await pool.query(
@@ -243,6 +254,20 @@ async function initializeDatabase() {
        ON CONFLICT (id) DO UPDATE SET created_at = EXCLUDED.created_at`,
       [sample.id, sample.customer, sample.email, sample.amount, sample.currency, sample.status, sample.dueDate,
        JSON.stringify(sample.lineItems), JSON.stringify(judgeMerchantProfile), crypto.randomBytes(32).toString("hex")]
+    );
+  }
+  const judgeDemoCollections = [
+    { id: "JUDGE-DEMO-COLLECT-2004", invoiceId: "JUDGE-DEMO-PAID-2004", amount: "640.00", currency: "USD", capturedAt: "2026-08-18T12:00:00Z" },
+    { id: "JUDGE-DEMO-COLLECT-2005", invoiceId: "JUDGE-DEMO-PAID-2005", amount: "1280.00", currency: "USD", capturedAt: "2026-09-10T12:00:00Z" },
+    { id: "JUDGE-DEMO-COLLECT-2006", invoiceId: "JUDGE-DEMO-PAID-2006", amount: "375.00", currency: "USD", capturedAt: "2026-10-20T12:00:00Z" }
+  ];
+  for (const demoCollection of judgeDemoCollections) {
+    await pool.query(
+      `INSERT INTO judge_demo_collections (id, invoice_id, amount, currency, label, created_at)
+       VALUES ($1,$2,$3,$4,'SIMULATED DEMO COLLECTION',$5::timestamptz)
+       ON CONFLICT (id) DO UPDATE SET amount = EXCLUDED.amount,
+         currency = EXCLUDED.currency, label = EXCLUDED.label, created_at = EXCLUDED.created_at`,
+      [demoCollection.id, demoCollection.invoiceId, demoCollection.amount, demoCollection.currency, demoCollection.capturedAt]
     );
   }
   const judgeResult = await pool.query(
@@ -467,6 +492,12 @@ app.get("/api/analytics/monthly", async (req, res) => {
          WHERE event_type = 'PAYMENT_CAPTURED'
            AND created_at >= date_bounds.first_month
            AND created_at < date_bounds.after_last_month
+         ${getWorkspaceRole() === "judge" ? `
+         UNION
+         SELECT DISTINCT UPPER(currency) AS currency
+         FROM judge_demo_collections, date_bounds
+         WHERE created_at >= date_bounds.first_month
+           AND created_at < date_bounds.after_last_month` : ""}
        ),
        invoice_totals AS (
          SELECT date_trunc('month', created_at) AS month_start,
@@ -488,13 +519,28 @@ app.get("/api/analytics/monthly", async (req, res) => {
            AND created_at >= (SELECT first_month FROM date_bounds)
            AND created_at < (SELECT after_last_month FROM date_bounds)
          GROUP BY 1, 2
+       ),
+       demo_payment_totals AS (
+         ${getWorkspaceRole() === "judge" ? `
+         SELECT date_trunc('month', created_at) AS month_start,
+                UPPER(currency) AS currency,
+                SUM(amount)::numeric(14,2)::text AS amount,
+                COUNT(*)::int AS payment_count
+         FROM judge_demo_collections
+         WHERE created_at >= (SELECT first_month FROM date_bounds)
+           AND created_at < (SELECT after_last_month FROM date_bounds)
+         GROUP BY 1, 2` : `
+         SELECT NULL::timestamp AS month_start, NULL::text AS currency,
+                '0.00'::text AS amount, 0::int AS payment_count WHERE FALSE`}
        )
        SELECT to_char(months.month_start, 'Mon YY') AS label,
               currencies.currency AS currency,
               COALESCE(invoice_totals.amount, '0.00') AS "invoicedAmount",
               COALESCE(payment_totals.amount, '0.00') AS "collectedAmount",
+              COALESCE(demo_payment_totals.amount, '0.00') AS "demoCollectedAmount",
               COALESCE(invoice_totals.invoice_count, 0) AS "invoiceCount",
-              COALESCE(payment_totals.payment_count, 0) AS "paymentCount"
+              COALESCE(payment_totals.payment_count, 0) AS "paymentCount",
+              COALESCE(demo_payment_totals.payment_count, 0) AS "demoPaymentCount"
        FROM months
        CROSS JOIN currencies
        LEFT JOIN invoice_totals
@@ -503,6 +549,9 @@ app.get("/api/analytics/monthly", async (req, res) => {
        LEFT JOIN payment_totals
          ON payment_totals.month_start = months.month_start
         AND payment_totals.currency = currencies.currency
+       LEFT JOIN demo_payment_totals
+         ON demo_payment_totals.month_start = months.month_start
+        AND demo_payment_totals.currency = currencies.currency
        ORDER BY currencies.currency, months.month_start`,
       [months]
     );
