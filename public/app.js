@@ -1150,7 +1150,8 @@ async function openCollectionSession(invoiceId) {
     const seconds = String(Math.floor((remaining % 60000) / 1000)).padStart(2, "0");
     countdown.textContent = minutes + ":" + seconds;
     if (remaining <= 0) {
-      stopCollectionTimers();
+      if (collectionCountdownTimer) clearInterval(collectionCountdownTimer);
+      collectionCountdownTimer = null;
       overlay.querySelector(".collection-status").textContent = "Collection window expired";
       overlay.querySelector(".collection-status").classList.add("expired");
       overlay.querySelector(".collection-session-note").textContent = "The display session has ended. The invoice is still unpaid unless payment is confirmed. You can close this window and start a new collection session; the payment link remains valid.";
