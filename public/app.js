@@ -498,16 +498,16 @@ function renderRecoveryInvoices() {
         if (safePaymentUrl.origin !== window.location.origin || !safePaymentUrl.pathname.startsWith("/pay/")) throw new Error("The secure invoice link is not trusted.");
 
         const rawEmail = String(data.draft || "");
-        const paymentMarker = "\\n\\nView invoice and pay securely:";
+        const paymentMarker = "\n\nView invoice and pay securely:";
         const paymentMarkerIndex = rawEmail.indexOf(paymentMarker);
         const generatedText = (paymentMarkerIndex >= 0 ? rawEmail.slice(0, paymentMarkerIndex) : rawEmail).trim();
-        const subjectMatch = generatedText.match(/(?:^|\\n)Subject:\\s*(.+)/i);
-        const messageMatch = generatedText.match(/(?:^|\\n)Message:\\s*([\\s\\S]*)/i);
+        const subjectMatch = generatedText.match(/(?:^|\n)Subject:\s*(.+)/i);
+        const messageMatch = generatedText.match(/(?:^|\n)Message:\s*([\s\S]*)/i);
         const subjectValue = subjectMatch ? subjectMatch[1].trim() : "Payment reminder — " + data.invoiceId;
         let messageValue = messageMatch ? messageMatch[1].trim() : generatedText;
-        messageValue = messageValue.replace(/^Subject:\\s*.*(?:\\n|$)/i, "").replace(/^Message:\\s*/i, "").trim();
+        messageValue = messageValue.replace(/^Subject:\s*.*(?:\n|$)/i, "").replace(/^Message:\s*/i, "").trim();
         const paymentLine = "View invoice and pay securely: " + safePaymentUrl.href;
-        if (!messageValue.includes(safePaymentUrl.href)) messageValue += (messageValue ? "\\n\\n" : "") + paymentLine;
+        if (!messageValue.includes(safePaymentUrl.href)) messageValue += (messageValue ? "\n\n" : "") + paymentLine;
 
         draft.replaceChildren();
         const editor = document.createElement("div");
@@ -521,7 +521,7 @@ function renderRecoveryInvoices() {
         subjectInput.type = "text";
         subjectInput.className = "recovery-email-subject";
         subjectInput.maxLength = 180;
-        subjectInput.value = subjectValue.replace(/^Draft:\\s*/i, "");
+        subjectInput.value = subjectValue.replace(/^Draft:\s*/i, "");
         subjectLabel.appendChild(subjectInput);
         const messageLabel = document.createElement("label");
         messageLabel.textContent = "MESSAGE — EDIT BEFORE SENDING";
@@ -529,7 +529,7 @@ function renderRecoveryInvoices() {
         messageArea.className = "recovery-email-message";
         messageArea.rows = 9;
         messageArea.maxLength = 12000;
-        messageArea.value = messageValue.replace(/\\bDraft only — not sent\\.?/gi, "").trim();
+        messageArea.value = messageValue.replace(/\bDraft only — not sent\.?/gi, "").trim();
         const paymentLink = document.createElement("a");
         paymentLink.href = safePaymentUrl.href;
         paymentLink.target = "_blank";
@@ -544,7 +544,7 @@ function renderRecoveryInvoices() {
         sendButton.textContent = "Open email app to send";
         sendButton.addEventListener("click", () => {
           const recipient = String(data.email || "").trim();
-          if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(recipient)) {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
             alert("This invoice does not have a valid customer email address.");
             return;
           }
@@ -556,7 +556,7 @@ function renderRecoveryInvoices() {
         copyButton.className = "recovery-copy-email";
         copyButton.textContent = "Copy email";
         copyButton.addEventListener("click", async () => {
-          const textToCopy = "To: " + data.email + "\\nSubject: " + subjectInput.value.trim() + "\\n\\n" + messageArea.value;
+          const textToCopy = "To: " + data.email + "\nSubject: " + subjectInput.value.trim() + "\n\n" + messageArea.value;
           try {
             await navigator.clipboard.writeText(textToCopy);
             copyButton.textContent = "Copied";
