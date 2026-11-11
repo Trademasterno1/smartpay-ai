@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=20261111-redesign3">
+  <link rel="stylesheet" href="/styles.css?v=20261111-premium1">
   <script src="/app.js?v=20261111-public1" defer></script>
 </head>
 <body>
@@ -19,9 +19,11 @@
       <a class="nav-item active" href="#"><span>▦</span> Overview</a>
       <a class="nav-item" href="#invoices"><span>▤</span> Invoices</a>
       <a class="nav-item" href="#assistant"><span>✳</span> AI assistant</a>
+      <a class="nav-item" href="#payments"><span>↗</span> Payments</a>
+      <a class="nav-item" href="#recovery"><span>◎</span> Recovery</a>
       <div class="sidebar-bottom"><div class="sandbox-pill"><i></i> PayPal Sandbox mode</div><p>Demo workspace<br><small>Sample data · No real money</small></p></div>
     </aside>
-    <main class="main">
+    <main class="main" id="overview">
       <header class="topbar"><div><div class="eyebrow">PAYMENT OPERATIONS · DEMO</div><h1>Good morning <span>✦</span></h1><p class="subhead">Here’s what’s happening with your payments.</p></div><div class="avatar">SP</div></header>
       <section class="stats" aria-label="Financial summary">
         <article class="stat-card"><div class="stat-top">Total invoiced <span>↗</span></div><div class="stat-value" id="totalValue">$0.00</div><div class="stat-note" id="totalInvoiceNote">Across all invoices</div></article>
