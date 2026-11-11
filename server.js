@@ -1,22 +1,97 @@
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
+const { Pool } = require("pg");
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
+const pool = process.env.DATABASE_URL
+  ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5, connectionTimeoutMillis: 10000 })
+  : null;
+let databaseConnected = false;
 const PAYPAL_BASE = process.env.PAYPAL_ENV === "live"
   ? "https://api-m.paypal.com"
   : "https://api-m.sandbox.paypal.com";
 
 const invoices = [
   { id: "INV-1001", customer: "Northstar Studio", email: "billing@example.com", amount: "249.00", currency: "USD", status: "PAID", dueDate: "2026-11-05", paypalOrderId: "DEMO-ORDER-1001" },
-  { id: "INV-1002", customer: "Green Leaf Cafe", email: "accounts@example.com", amount: "580.00", currency: "USD", status: "UNPAID", dueDate: "2026-11-08", paypalOrderId: null },
+  { id: "INV-1002", customer: "Green Leaf Cafe", email: "accounts@example.com", amount: "580.00", currency: "USD", status: "PAID", dueDate: "2026-11-08", paypalOrderId: null },
   { id: "INV-1003", customer: "Atlas Design Co.", email: "finance@example.com", amount: "125.50", currency: "USD", status: "OVERDUE", dueDate: "2026-10-28", paypalOrderId: null },
   { id: "INV-1004", customer: "BrightPath Learning", email: "office@example.com", amount: "920.00", currency: "USD", status: "UNPAID", dueDate: "2026-11-15", paypalOrderId: null }
 ];
+
+
+async function initializeDatabase() {
+  if (!pool) {
+    console.warn("DATABASE_URL is not configured; using temporary in-memory demo data.");
+    return;
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS invoices (
+      id TEXT PRIMARY KEY,
+      customer TEXT NOT NULL,
+      email TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      currency TEXT NOT NULL,
+      status TEXT NOT NULL,
+      due_date DATE NOT NULL,
+      paypal_order_id TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payment_events (
+      id BIGSERIAL PRIMARY KEY,
+      invoice_id TEXT NOT NULL REFERENCES invoices(id),
+      paypal_order_id TEXT,
+      event_type TEXT NOT NULL,
+      amount NUMERIC(12,2),
+      currency TEXT,
+      details JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  for (const invoice of invoices) {
+    await pool.query(
+      `INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING`,
+      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId]
+    );
+  }
+  const result = await pool.query(
+    `SELECT id, customer, email, amount::text, currency, status,
+            to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId"
+     FROM invoices ORDER BY due_date, id`
+  );
+  invoices.splice(0, invoices.length, ...result.rows);
+  databaseConnected = true;
+  console.log("PostgreSQL connected; loaded " + invoices.length + " invoices.");
+}
+
+async function persistInvoice(invoice) {
+  if (!pool) return;
+  await pool.query(
+    `INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+     ON CONFLICT (id) DO UPDATE SET customer=EXCLUDED.customer, email=EXCLUDED.email,
+       amount=EXCLUDED.amount, currency=EXCLUDED.currency, status=EXCLUDED.status,
+       due_date=EXCLUDED.due_date, paypal_order_id=EXCLUDED.paypal_order_id, updated_at=NOW()`,
+    [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId]
+  );
+}
+
+async function recordPaymentEvent(invoice, orderId, capture) {
+  if (!pool) return;
+  await pool.query(
+    `INSERT INTO payment_events (invoice_id, paypal_order_id, event_type, amount, currency, details)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
+    [invoice.id, orderId, "PAYMENT_CAPTURED", capture?.amount?.value || invoice.amount,
+     capture?.amount?.currency_code || invoice.currency, JSON.stringify({ captureId: capture?.id || null, status: capture?.status || null })]
+  );
+}
 
 let paypalTokenCache = { token: null, expiresAt: 0 };
 
@@ -118,7 +193,7 @@ app.get("/api/config", (_req, res) => {
 });
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, app: "SmartPay AI", paypalConfigured: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) });
+  res.json({ ok: true, app: "SmartPay AI", paypalConfigured: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET), databaseConfigured: Boolean(pool), databaseConnected });
 });
 
 app.get("/api/invoices", (_req, res) => res.json(invoices));
@@ -151,6 +226,7 @@ async function createPayPalOrderForInvoice(invoice) {
     throw new Error("PayPal returned an unexpected checkout URL.");
   }
   invoice.paypalOrderId = data.id;
+  await persistInvoice(invoice);
   return { id: data.id, approvalUrl: approvalHref };
 }
 
@@ -210,6 +286,8 @@ app.post("/api/paypal/capture-order", async (req, res) => {
     }
 
     invoice.status = "PAID";
+    await persistInvoice(invoice);
+    await recordPaymentEvent(invoice, orderId, capture);
     res.json({ status: "COMPLETED", invoiceId: invoice.id, amount: capturedAmount.value, currency: capturedAmount.currency_code });
   } catch (error) {
     console.error("PayPal capture error:", error.message);
@@ -303,4 +381,9 @@ app.get("/api/summary", (_req, res) => res.json(buildBusinessSummary()));
 
 app.get("*", (_req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
-app.listen(PORT, () => console.log("SmartPay AI running on port " + PORT));
+initializeDatabase()
+  .then(() => app.listen(PORT, () => console.log("SmartPay AI running on port " + PORT)))
+  .catch(error => {
+    console.error("Database initialization failed:", error.message);
+    process.exit(1);
+  });
