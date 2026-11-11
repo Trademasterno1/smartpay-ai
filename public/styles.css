@@ -88,3 +88,88 @@ button,select{touch-action:manipulation}button:focus-visible,a:focus-visible,inp
  footer{font-size:9px;line-height:1.6}footer span{display:block;float:none;margin-top:5px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+/* SmartPay AI — high-contrast dashboard redesign */
+:root{
+ --ink:#152744;--muted:#71819a;--line:#e4eaf3;--paper:#f1f5fb;
+ --blue:#3977f6;--blue-dark:#2057d4;--green:#15966b;--red:#d45a66;
+ --shadow:0 14px 38px rgba(24,48,86,.075)
+}
+body{background:#f1f5fb}
+.shell{background:linear-gradient(120deg,#f4f7fc 0%,#edf3fb 100%)}
+.sidebar{
+ background:linear-gradient(180deg,#142b4c 0%,#0e203a 100%);
+ border:0;color:#fff;padding:30px 18px;box-shadow:8px 0 28px rgba(12,31,57,.08)
+}
+.brand{color:#fff}.brand-mark{background:linear-gradient(145deg,#5e91ff,#2864e8);box-shadow:0 8px 20px rgba(38,100,232,.35)}
+.brand-ai{color:#8eb4ff}.workspace-label{color:#8fa4c2}
+.nav-item{color:#bdcbe0;border-radius:11px;padding:13px 14px;margin:4px 0}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-item.active{background:linear-gradient(100deg,rgba(75,129,244,.28),rgba(75,129,244,.12));color:#fff;box-shadow:inset 3px 0 #77a4ff}
+.sidebar-bottom{color:#d4deec}.sidebar-bottom small{color:#91a5c1}
+.sandbox-pill{background:rgba(34,177,125,.12);border-color:rgba(90,208,161,.25);color:#8de0bd}
+.sandbox-pill i{background:#55d6a3}
+.main{padding:38px 46px 42px;max-width:1600px}
+.topbar{padding:25px 28px;margin:0 0 22px;border-radius:18px;background:linear-gradient(115deg,#1c3c68 0%,#2459a4 58%,#3977e8 100%);color:#fff;box-shadow:0 16px 34px rgba(30,76,145,.18)}
+.topbar .eyebrow{color:#b9d0f5}.topbar h1{font-size:31px;color:#fff}.topbar h1 span{color:#ffd27a}
+.topbar .subhead{color:#d7e5fb}
+.avatar{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);color:#fff}
+.stats{gap:16px;margin-bottom:19px}
+.stat-card{position:relative;overflow:hidden;border:1px solid #e3eaf4;border-radius:16px;background:#fff;padding:21px 21px 19px;box-shadow:var(--shadow)}
+.stat-card:after{content:"";position:absolute;right:-24px;top:-28px;width:94px;height:94px;border-radius:50%;background:rgba(57,119,246,.065)}
+.stat-card:nth-child(2):after{background:rgba(21,150,107,.09)}
+.stat-card:nth-child(3):after{background:rgba(226,170,66,.12)}
+.stat-card:nth-child(4):after{background:rgba(212,90,102,.10)}
+.stat-top{color:#687b96;font-size:11px;text-transform:uppercase;letter-spacing:.65px}
+.stat-value{font-size:29px;color:#152b4b;margin:16px 0 5px}
+.stat-card:nth-child(2) .stat-value{color:#11835d}
+.stat-card:nth-child(4) .stat-value{color:#bd4b5a}
+.stat-note{color:#8d9bb0;font-size:10px}
+.panel,.stat-card{border-radius:16px;box-shadow:var(--shadow)}
+.panel{padding:25px;border-color:#e4eaf3}
+.panel-heading{margin-bottom:4px}
+.panel h2,.assistant-panel h2{color:#192f50;font-size:19px}
+.eyebrow{color:#7890b2}
+.tiny-tag{background:#edf3fc;color:#52719c;border:1px solid #e1eaf7}
+.financial-overview{background:linear-gradient(135deg,#fff 0%,#f8fbff 100%)}
+.collection-summary strong{color:#205fd9;font-size:38px}
+.collection-bar{height:14px;background:#e8eef7}
+.collection-bar-paid{background:linear-gradient(90deg,#14956b,#53c69a)}
+.collection-bar-open{background:linear-gradient(90deg,#efc36c,#f5d99c)}
+.monthly-performance{background:#fff}
+.content-grid{gap:20px}
+.invoice-panel{background:#fff}
+.merchant-profile-panel{background:linear-gradient(135deg,#f5f8ff,#fff);border:1px solid #dce7f7;border-radius:14px;padding:19px}
+.create-invoice-form{background:#f8faff;border:1px solid #e2eaf7;border-radius:14px;padding:18px}
+.create-invoice-form .line-items-editor{background:#fff;border:1px solid #e8edf5;border-radius:11px;padding:13px;margin-top:15px}
+.create-invoice-fields input,.merchant-profile-grid input,.merchant-profile-grid textarea,.invoice-item-row input,.invoice-tools input,.invoice-tools select{background:#fff;border:1px solid #dce5f1;border-radius:9px;padding:11px 12px}
+.create-invoice-actions button,.merchant-profile-actions button,.draft-button{background:linear-gradient(135deg,#397cf8,#2057d4);border-radius:9px;box-shadow:0 7px 16px rgba(42,103,222,.18)}
+.export-button{background:#edf4ff;border-color:#d9e6fa;color:#2c5fae}
+.table-wrap{border:1px solid #e9eef5;border-radius:11px}
+table{min-width:560px}
+th{background:#f6f8fc;color:#7486a0}
+tbody tr:hover{background:#f4f8ff}
+td{color:#5e718d}
+.status{border-radius:20px;padding:6px 10px}
+.assistant-panel{background:linear-gradient(160deg,#fff 0%,#f4f8ff 100%);border-color:#dfe8f6}
+.ai-icon{width:40px;height:40px;background:linear-gradient(145deg,#e7efff,#d5e4ff);color:#2866df}
+.suggestion{background:#fff;border-color:#dfe8f5;color:#456487}
+.ask-row{background:#fff;border-color:#dce6f3}
+.ask-row button{background:linear-gradient(135deg,#397cf8,#2057d4)}
+.ai-response{background:#f1f6ff;border-color:#dfe9f8}
+.payment-history-panel,.recovery-panel{background:#fff}
+.recovery-item{background:#fbfcff;border:1px solid #e5ebf4}
+.recovery-draft{background:#f2f6ff;border-color:#e0e9f8}
+footer{color:#8393aa}
+@media(max-width:900px){.main{padding:22px 18px}.sidebar{width:190px}}
+@media(max-width:600px){
+ .main{padding:14px 12px 28px}
+ .topbar{padding:20px 18px;border-radius:15px}
+ .topbar h1{font-size:25px}
+ .stats{gap:10px}
+ .stat-card{padding:15px 13px;border-radius:13px}
+ .stat-value{font-size:22px}
+ .panel{padding:16px;border-radius:14px}
+ .merchant-profile-panel,.create-invoice-form{padding:13px}
+}
