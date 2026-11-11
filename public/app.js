@@ -1491,6 +1491,7 @@ function renderAssistantAnswer(container, answer, provider) {
     codeLines = null;
   };
   const appendInline = (parent, value) => {
+    value = String(value || "").replace(/https?:\/\/[^\s<]+/gi, "").replace(/[ \t]{2,}/g, " ").trim();
     const pattern = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*)/g;
     let cursor = 0;
     for (const match of value.matchAll(pattern)) {
