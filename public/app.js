@@ -537,20 +537,24 @@ async function refreshMonthlyAnalytics() {
     container.style.gridTemplateColumns = "minmax(0, 1fr)";
     container.innerHTML = Array.from(currencyGroups.entries()).map(([currency, items]) => {
       const maxValue = Math.max(1, ...items.flatMap(item => [
-        Number(item.invoicedAmount || 0), Number(item.collectedAmount || 0)
+        Number(item.invoicedAmount || 0), Number(item.collectedAmount || 0),
+        Number(item.demoCollectedAmount || 0)
       ]));
       const monthsMarkup = items.map(item => {
         const invoiced = Number(item.invoicedAmount || 0);
         const collected = Number(item.collectedAmount || 0);
+        const demoCollected = Number(item.demoCollectedAmount || 0);
         const invoiceHeight = invoiced > 0 ? Math.max(3, (invoiced / maxValue) * 100) : 0;
         const collectedHeight = collected > 0 ? Math.max(3, (collected / maxValue) * 100) : 0;
+        const demoCollectedHeight = demoCollected > 0 ? Math.max(3, (demoCollected / maxValue) * 100) : 0;
         return `<div class="month-column">
           <div class="month-bars">
             <div class="month-bar-slot"><span class="month-bar invoice-bar" style="height:${invoiceHeight}%" title="Invoices: ${escapeHTML(formatChartMoney(invoiced, currency))}"></span></div>
-            <div class="month-bar-slot"><span class="month-bar collected-bar" style="height:${collectedHeight}%" title="Captured: ${escapeHTML(formatChartMoney(collected, currency))}"></span></div>
+            <div class="month-bar-slot"><span class="month-bar collected-bar" style="height:${collectedHeight}%" title="Confirmed PayPal captures: ${escapeHTML(formatChartMoney(collected, currency))}"></span></div>
+            <div class="month-bar-slot"><span class="month-bar demo-collected-bar" style="height:${demoCollectedHeight}%" title="Simulated demo collections: ${escapeHTML(formatChartMoney(demoCollected, currency))}"></span></div>
           </div>
           <span class="month-label">${escapeHTML(item.label)}</span>
-          <span class="month-values">${escapeHTML(formatChartMoney(invoiced, currency))} / ${escapeHTML(formatChartMoney(collected, currency))}</span>
+          <span class="month-values">${escapeHTML(formatChartMoney(invoiced, currency))} / ${escapeHTML(formatChartMoney(collected, currency))} / ${escapeHTML(formatChartMoney(demoCollected, currency))}</span>
         </div>`;
       }).join("");
       return `<section class="monthly-currency-group" aria-label="Monthly performance in ${escapeHTML(currency)}">
