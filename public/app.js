@@ -269,16 +269,17 @@ function renderCashFlowForecast() {
         today.setHours(0, 0, 0, 0);
         const todayKey = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
         const ranked = outstanding.map(invoice => {
-          const due = String(invoice.dueDate || "");
-          const validDue = /^\\d{4}-\\d{2}-\\d{2}$/.test(due);
+          const due = String(invoice.dueDate || "").trim();
+          const validDue = /^\d{4}-\d{2}-\d{2}$/.test(due) && !Number.isNaN(Date.parse(due + "T00:00:00"));
           const dueTime = validDue ? Date.parse(due + "T00:00:00") : NaN;
-          const days = validDue ? Math.round((today.getTime() - dueTime) / 86400000) : null;
-          const overdue = invoice.status === "OVERDUE" || (days !== null && days > 0);
-          const dueSoon = days !== null && days >= 0 && days <= 7;
+          const daysPastDue = validDue ? Math.floor((today.getTime() - dueTime) / 86400000) : null;
+          const daysUntilDue = validDue ? Math.ceil((dueTime - today.getTime()) / 86400000) : null;
+          const overdue = invoice.status === "OVERDUE" || (daysPastDue !== null && daysPastDue > 0);
+          const dueSoon = !overdue && daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7;
           const risk = overdue ? "HIGH" : dueSoon ? "MEDIUM" : "LOW";
           const evidence = overdue
-            ? (days > 0 ? days + " day(s) past due; status " + invoice.status + "." : "Invoice is marked OVERDUE.")
-            : dueSoon ? (days === 0 ? "Due today." : "Due in " + days + " day(s).") :
+            ? (daysPastDue > 0 ? daysPastDue + " day(s) past due; status " + invoice.status + "." : "Invoice is marked OVERDUE.")
+            : dueSoon ? (daysUntilDue === 0 ? "Due today." : "Due in " + daysUntilDue + " day(s).") :
               validDue ? "Not overdue; due date is " + due + "." : "Due date is missing or invalid; verify invoice details.";
           const action = overdue
             ? "Contact the customer promptly, confirm the payment date, and share the secure invoice link if available."
