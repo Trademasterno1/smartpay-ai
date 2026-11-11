@@ -1089,3 +1089,15 @@ footer span{color:#7f9ab6}
 .forecast-ai-result .risk-review .risk-level {
   flex-shrink:0;
 }
+
+
+/* AI risk review disclaimer note: pale amber surface with dark, readable copy. */
+.forecast-ai-result .risk-review > .ai-action-disclaimer {
+  background:#fff4d6!important;
+  border:1px solid #e8c66f!important;
+  color:#263d59!important;
+  -webkit-text-fill-color:#263d59!important;
+  font-weight:600;
+  border-radius:9px;
+  padding:11px 13px;
+}
