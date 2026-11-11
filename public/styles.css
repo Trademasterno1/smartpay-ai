@@ -1002,3 +1002,42 @@ footer span{color:#7f9ab6}
 .cash-flow-forecast-panel .forecast-currency-group>.eyebrow { color:#73d9ed!important; }
 .cash-flow-forecast-panel .forecast-legend { color:#c2d6e8!important; }
 .cash-flow-forecast-panel .monthly-chart-footnote { color:#a9bfd4!important; }
+
+
+/* Cash Flow Forecast: explicit, high-contrast segment colors and matching legend. */
+.cash-flow-forecast-panel .forecast-bar {
+  display:flex!important;
+  gap:3px;
+  height:16px!important;
+  padding:2px;
+  background:rgba(4,17,31,.9)!important;
+  border:1px solid rgba(123,170,207,.24);
+  border-radius:20px;
+  overflow:hidden;
+}
+.cash-flow-forecast-panel .forecast-bar > span {
+  display:block;
+  height:100%;
+  min-width:0;
+  border-radius:12px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+}
+.cash-flow-forecast-panel .forecast-segment-overdue {
+  background:linear-gradient(90deg,#e34e62,#ff8290)!important;
+}
+.cash-flow-forecast-panel .forecast-segment-next7 {
+  background:linear-gradient(90deg,#d99b27,#ffd36b)!important;
+}
+.cash-flow-forecast-panel .forecast-segment-days8 {
+  background:linear-gradient(90deg,#347fda,#65b8ff)!important;
+}
+.cash-flow-forecast-panel .forecast-legend .forecast-dot-overdue { background:#ff7183!important; }
+.cash-flow-forecast-panel .forecast-legend .forecast-dot-next7 { background:#f5c45a!important; }
+.cash-flow-forecast-panel .forecast-legend .forecast-dot-days8 { background:#59aaff!important; }
+.cash-flow-forecast-panel .forecast-legend .legend-dot {
+  display:inline-block;
+  width:9px;height:9px;min-width:9px;
+  border-radius:50%;
+  box-shadow:0 0 0 2px rgba(255,255,255,.08);
+}
+.cash-flow-forecast-panel .forecast-legend span { color:#d1e2f2!important; }
