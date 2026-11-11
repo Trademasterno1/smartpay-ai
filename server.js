@@ -529,7 +529,7 @@ app.post("/api/invoices", async (req, res) => {
     const amount = Number(validatedItems.amount);
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid customer email address." });
+    if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) return res.status(400).json({ error: "Enter a valid customer email address, or leave it blank." });
     if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const invoice = {
@@ -568,7 +568,7 @@ app.put("/api/invoices/:id", async (req, res) => {
     const amount = Number(validatedItems.amount);
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid customer email address." });
+    if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) return res.status(400).json({ error: "Enter a valid customer email address, or leave it blank." });
     if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const updated = await pool.query(

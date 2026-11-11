@@ -912,9 +912,17 @@ function renderRecoveryInvoices() {
         draft.replaceChildren();
         const editor = document.createElement("div");
         editor.className = "recovery-email-editor";
-        const recipientLabel = document.createElement("div");
+        const recipientLabel = document.createElement("label");
         recipientLabel.className = "recovery-email-meta";
-        recipientLabel.textContent = "To: " + data.email + " · " + data.invoiceId + " · " + money(data.amount, data.currency);
+        recipientLabel.textContent = "TO — CUSTOMER EMAIL";
+        const recipientInput = document.createElement("input");
+        recipientInput.type = "email";
+        recipientInput.className = "recovery-email-recipient";
+        recipientInput.maxLength = 254;
+        recipientInput.autocomplete = "email";
+        recipientInput.placeholder = "customer@example.com";
+        recipientInput.value = data.email || "";
+        recipientLabel.appendChild(recipientInput);
         const subjectLabel = document.createElement("label");
         subjectLabel.textContent = "EMAIL SUBJECT";
         const subjectInput = document.createElement("input");
@@ -941,44 +949,35 @@ function renderRecoveryInvoices() {
         const sendButton = document.createElement("button");
         sendButton.type = "button";
         sendButton.className = "recovery-send-email";
-        sendButton.textContent = "Send email";
-        sendButton.addEventListener("click", async () => {
-          if (sendButton.disabled) return;
+        sendButton.textContent = "Open Email App";
+        sendButton.addEventListener("click", () => {
+          const recipient = recipientInput.value.trim();
           const subject = subjectInput.value.trim();
           const message = messageArea.value.trim();
+          if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+            helper.textContent = "Enter a valid customer email address to continue.";
+            helper.className = "recovery-email-helper error-message";
+            recipientInput.focus();
+            return;
+          }
           if (!subject || !message) {
-            helper.textContent = "Enter both an email subject and message before sending.";
+            helper.textContent = "Enter both an email subject and message before continuing.";
             helper.className = "recovery-email-helper error-message";
             return;
           }
-          sendButton.disabled = true;
-          sendButton.textContent = "Sending…";
-          helper.textContent = "Sending securely through SmartPay AI…";
+          const mailto = "mailto:" + encodeURIComponent(recipient) +
+            "?subject=" + encodeURIComponent(subject) +
+            "&body=" + encodeURIComponent(message);
+          helper.textContent = "Opening your email app with the customer address and reminder. Review it, then press Send in your email app.";
           helper.className = "recovery-email-helper";
-          try {
-            const response = await fetch("/api/recovery/send-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Accept": "application/json" },
-              body: JSON.stringify({ invoiceId: data.invoiceId, subject, message })
-            });
-            const result = await response.json();
-            if (!response.ok || !result.sent) throw new Error(result.error || "The email was not sent.");
-            sendButton.textContent = "Email sent";
-            helper.textContent = "Email accepted by the provider for " + result.recipient + ".";
-            helper.className = "recovery-email-helper success-message";
-          } catch (error) {
-            helper.textContent = error.message || "The email could not be sent. Please try again.";
-            helper.className = "recovery-email-helper error-message";
-            sendButton.disabled = false;
-            sendButton.textContent = "Retry sending";
-          }
+          window.location.href = mailto;
         });
         const copyButton = document.createElement("button");
         copyButton.type = "button";
         copyButton.className = "recovery-copy-email";
         copyButton.textContent = "Copy email";
         copyButton.addEventListener("click", async () => {
-          const textToCopy = "To: " + data.email + "\nSubject: " + subjectInput.value.trim() + "\n\n" + messageArea.value;
+          const textToCopy = "To: " + recipientInput.value.trim() + "\nSubject: " + subjectInput.value.trim() + "\n\n" + messageArea.value;
           try {
             await navigator.clipboard.writeText(textToCopy);
             copyButton.textContent = "Copied";
@@ -990,7 +989,7 @@ function renderRecoveryInvoices() {
         actionsRow.append(sendButton, copyButton);
         const helper = document.createElement("p");
         helper.className = "recovery-email-helper";
-        helper.textContent = "The edited message will be sent to the customer from your configured SmartPay email service.";
+        helper.textContent = "The email app will open with the recipient, subject and message filled in. You review and send it yourself.";
         editor.append(recipientLabel, subjectLabel, messageLabel, messageArea, paymentLink, actionsRow, helper);
         draft.appendChild(editor);
         button.textContent = "Regenerate email";
