@@ -137,7 +137,7 @@ function renderRiskFallback(container, ranked, provider, missingInvoiceIds = [])
   wrapper.className = "risk-review";
   const intro = document.createElement("p");
   intro.className = "risk-review-intro";
-  intro.textContent = "AI returned an incomplete review. The following complete assessment is calculated from invoice status and due dates; it is not an AI prediction. No reminders were sent.";
+  intro.textContent = "AI returned an incomplete review. This rules-based assessment uses invoice status and due dates; it is not an AI prediction. No reminders or messages were sent, no calls were made, and no payments were taken.";
   wrapper.appendChild(intro);
   ranked.forEach((item, index) => {
     const invoice = item.invoice;
