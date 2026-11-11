@@ -93,6 +93,82 @@ function renderRiskReview(container, raw, provider) {
 }
 
 
+function renderRiskFallback(container, ranked, provider) {
+  const styleId = "smartpay-risk-review-styles";
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = ".risk-review{display:grid;gap:14px;margin-top:16px}.risk-review-intro{color:#64748b;line-height:1.65}.risk-invoice-card{background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:18px;box-shadow:0 5px 18px rgba(23,36,58,.045)}.risk-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.risk-card-title{font-size:15px;font-weight:800;color:#17243a;overflow-wrap:anywhere}.risk-level{font-size:10px;font-weight:800;letter-spacing:.6px;padding:6px 9px;border-radius:20px;white-space:nowrap}.risk-level.HIGH{background:#fff0f0;color:#b6424a}.risk-level.MEDIUM{background:#fff7e7;color:#9b6800}.risk-level.LOW{background:#eaf7f0;color:#168257}.risk-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}.risk-fact{background:#f7f9fc;border-radius:9px;padding:10px;min-width:0}.risk-fact span{display:block;color:#8290a3;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}.risk-fact strong{font-size:13px;overflow-wrap:anywhere}.risk-copy{font-size:13px;line-height:1.65;color:#42516a;margin:10px 0 0}.risk-copy b{display:block;color:#17243a;font-size:10px;letter-spacing:.7px;text-transform:uppercase;margin-bottom:4px}.risk-action{background:#f2f7ff;border-left:3px solid #1769e0;border-radius:7px;padding:12px;margin-top:12px;color:#243b5a;font-size:13px;line-height:1.65}.risk-action b{display:block;font-size:10px;letter-spacing:.7px;margin-bottom:4px}.risk-top-actions{background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:16px}.risk-top-actions h4{margin:0 0 10px;font-size:13px}.risk-top-actions ol{margin:0;padding-left:20px;color:#42516a;font-size:13px;line-height:1.7}.risk-provider{color:#8290a3;font-size:11px;margin-top:4px}@media(max-width:520px){.risk-facts{grid-template-columns:1fr}.risk-card-head{align-items:center}}";
+    document.head.appendChild(style);
+  }
+  container.replaceChildren();
+  const wrapper = document.createElement("div");
+  wrapper.className = "risk-review";
+  const intro = document.createElement("p");
+  intro.className = "risk-review-intro";
+  intro.textContent = "AI returned an incomplete review. The following complete assessment is calculated from invoice status and due dates; it is not an AI prediction. No reminders were sent.";
+  wrapper.appendChild(intro);
+  ranked.forEach((item, index) => {
+    const invoice = item.invoice;
+    const card = document.createElement("article");
+    card.className = "risk-invoice-card";
+    const head = document.createElement("div");
+    head.className = "risk-card-head";
+    const title = document.createElement("div");
+    title.className = "risk-card-title";
+    title.textContent = (index + 1) + ". " + invoice.id + " · " + (invoice.customer || "Customer not recorded");
+    const risk = document.createElement("span");
+    risk.className = "risk-level " + item.risk;
+    risk.textContent = item.risk + " RISK";
+    head.append(title, risk);
+    const facts = document.createElement("div");
+    facts.className = "risk-facts";
+    [["Amount", money(item.amount, invoice.currency || "USD")], ["Status", invoice.status], ["Due date", invoice.dueDate || "Not recorded"], ["Timing", item.daysPastDue > 0 ? item.daysPastDue + " day(s) past due" : item.daysUntilDue !== null ? item.daysUntilDue + " day(s) until due" : "Date needs review"]].forEach(([label, value]) => {
+      const fact = document.createElement("div"); fact.className = "risk-fact";
+      const caption = document.createElement("span"); caption.textContent = label;
+      const strong = document.createElement("strong"); strong.textContent = value;
+      fact.append(caption, strong); facts.appendChild(fact);
+    });
+    const evidence = document.createElement("p");
+    evidence.className = "risk-copy";
+    const evidenceLabel = document.createElement("b");
+    evidenceLabel.textContent = "Evidence for risk";
+    evidence.append(evidenceLabel, document.createTextNode(item.evidence));
+    const action = document.createElement("div");
+    action.className = "risk-action";
+    const actionLabel = document.createElement("b");
+    actionLabel.textContent = "Next practical action";
+    action.append(actionLabel, document.createTextNode(item.action));
+    card.append(head, facts, evidence, action);
+    wrapper.appendChild(card);
+  });
+  if (ranked.length) {
+    const section = document.createElement("section");
+    section.className = "risk-top-actions";
+    const heading = document.createElement("h4");
+    heading.textContent = "Top priorities for the merchant";
+    const list = document.createElement("ol");
+    ranked.slice(0, 3).forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item.invoice.id + " — " + item.action;
+      list.appendChild(li);
+    });
+    section.append(heading, list);
+    wrapper.appendChild(section);
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "risk-review-intro";
+    empty.textContent = "No outstanding invoices were found.";
+    wrapper.appendChild(empty);
+  }
+  const footer = document.createElement("div");
+  footer.className = "risk-provider";
+  footer.textContent = "Assessment: rules-based fallback" + (provider ? " · AI provider attempted: " + provider : "");
+  wrapper.appendChild(footer);
+  container.appendChild(wrapper);
+}
+
+
 const $ = (selector) => document.querySelector(selector);
 let invoices = [];
 let paymentHistory = [];
@@ -384,11 +460,7 @@ function renderCashFlowForecast() {
             " · Due: " + (invoice.dueDate || "Not recorded") + "\nEvidence: " + item.evidence +
             "\nNext action: " + item.action;
         });
-        aiResult.textContent = "AI provider returned an incomplete review, so SmartPay displayed its transparent rule-based fallback instead.\n\n" +
-          "COLLECTION-RISK REVIEW · OUTSTANDING INVOICES ONLY\n\n" +
-          (sections.length ? sections.join("\n\n") : "No outstanding invoices were found.") +
-          "\n\nPriority: review HIGH-risk overdue invoices first, then MEDIUM-risk invoices due soon. " +
-          "This is a rules-based operational assessment, not a trained prediction. No reminders were sent.";
+        renderRiskFallback(aiResult, ranked, data.provider);
       }
       aiButton.textContent = "Run analysis again";
     } catch (error) {
