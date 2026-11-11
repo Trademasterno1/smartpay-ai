@@ -452,7 +452,7 @@ function renderCashFlowForecast() {
       const answer = String(data.answer || "").trim();
       const invoiceIdCounts = outstanding.map(invoice => {
         const invoiceId = String(invoice.id);
-        const matches = answer.match(new RegExp("(?:^|[^A-Z0-9_-])" + invoiceId + "(?=$|[^A-Z0-9_-])", "gi")) || [];
+        const matches = answer.match(new RegExp("INVOICE\\s*:\\s*" + invoiceId + "(?=\\s*;|\\s|$)", "gi")) || [];
         return { id: invoiceId, count: matches.length };
       });
       const completeAIReview = outstanding.length > 0 &&
