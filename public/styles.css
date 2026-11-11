@@ -1041,3 +1041,34 @@ footer span{color:#7f9ab6}
   box-shadow:0 0 0 2px rgba(255,255,255,.08);
 }
 .cash-flow-forecast-panel .forecast-legend span { color:#d1e2f2!important; }
+
+
+/* AI Collection Risk Review: prevent light-theme cards inheriting white text on white. */
+#collectionRiskReview .risk-review .risk-invoice-card,
+#collectionRiskReview .risk-review .risk-top-actions {
+  background:#10243a!important;
+  border:1px solid #29445f!important;
+  color:#eaf4ff!important;
+}
+#collectionRiskReview .risk-review .risk-card-title,
+#collectionRiskReview .risk-review .risk-fact strong,
+#collectionRiskReview .risk-review .risk-copy,
+#collectionRiskReview .risk-review .risk-action,
+#collectionRiskReview .risk-review .risk-top-actions h4,
+#collectionRiskReview .risk-review .risk-top-actions li { color:#eaf4ff!important; }
+#collectionRiskReview .risk-review .risk-fact {
+  background:#19334d!important;
+  border:1px solid #2c4c68!important;
+}
+#collectionRiskReview .risk-review .risk-fact span,
+#collectionRiskReview .risk-review .risk-provider,
+#collectionRiskReview .risk-review .risk-review-intro { color:#b8cde0!important; }
+#collectionRiskReview .risk-review .risk-copy b,
+#collectionRiskReview .risk-review .risk-action b { color:#8edcff!important; }
+#collectionRiskReview .risk-review .risk-action {
+  background:#142f49!important;
+  border-left-color:#49a9ff!important;
+}
+#collectionRiskReview .risk-review .risk-level.HIGH { background:#512a38!important;color:#ffb6c0!important; }
+#collectionRiskReview .risk-review .risk-level.MEDIUM { background:#514126!important;color:#ffe09a!important; }
+#collectionRiskReview .risk-review .risk-level.LOW { background:#174638!important;color:#9af0c9!important; }
