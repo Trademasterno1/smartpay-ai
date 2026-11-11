@@ -1,3 +1,10 @@
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => {
+    const entities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+    return entities[char];
+  });
+}
+
 const $ = (selector) => document.querySelector(selector);
 let invoices = [];
 
@@ -8,11 +15,11 @@ function money(amount, currency) {
 function renderInvoices() {
   $("#invoiceRows").innerHTML = invoices.map(invoice => `
     <tr>
-      <td><strong>${invoice.id}</strong><small>${invoice.customer}</small></td>
-      <td>${invoice.dueDate}</td>
+      <td><strong>${escapeHTML(invoice.id)}</strong><small>${escapeHTML(invoice.customer)}</small></td>
+      <td>${escapeHTML(invoice.dueDate)}</td>
       <td class="amount">${money(invoice.amount, invoice.currency)}</td>
-      <td><span class="status ${invoice.status}">${invoice.status}</span></td>
-      <td>${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${invoice.id}">Pay with PayPal</button>`}</td>
+      <td><span class="status ${escapeHTML(invoice.status)}">${escapeHTML(invoice.status)}</span></td>
+      <td>${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}</td>
     </tr>`).join("");
   $("#invoiceRows").querySelectorAll("[data-invoice]").forEach(button => {
     button.addEventListener("click", () => startPayPalCheckout(button.dataset.invoice));
@@ -248,6 +255,45 @@ document.querySelectorAll(".suggestion").forEach(button => {
     $("#question").value = button.textContent;
     $("#askForm").requestSubmit();
   });
+});
+
+
+$("#createInvoiceForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = $("#createInvoiceButton");
+  const message = $("#createInvoiceMessage");
+  const originalText = button.textContent;
+  const formData = new FormData(form);
+  const payload = {
+    customer: formData.get("customer"),
+    email: formData.get("email"),
+    amount: formData.get("amount"),
+    dueDate: formData.get("dueDate")
+  };
+  button.disabled = true;
+  button.textContent = "Saving…";
+  message.textContent = "Saving invoice to Neon…";
+  message.className = "";
+  try {
+    const response = await fetch("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Could not create invoice.");
+    form.reset();
+    await refreshDashboard();
+    message.textContent = data.invoice.id + " created and saved as UNPAID.";
+    message.className = "success-message";
+  } catch (error) {
+    message.textContent = error.message || "Could not create invoice. Please try again.";
+    message.className = "error-message";
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 });
 
 refreshDashboard().catch(error => console.error(error));

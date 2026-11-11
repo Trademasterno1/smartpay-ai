@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
+const crypto = require("crypto");
 const { Pool } = require("pg");
 
 const app = express();
@@ -197,6 +198,36 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.get("/api/invoices", (_req, res) => res.json(invoices));
+
+app.post("/api/invoices", async (req, res) => {
+  try {
+    if (!pool || !databaseConnected) return res.status(503).json({ error: "Persistent database is unavailable. No invoice was created." });
+    const customer = String(req.body.customer || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const amountInput = String(req.body.amount ?? "").trim();
+    const dueDate = String(req.body.dueDate || "").trim();
+    const amount = Number(amountInput);
+    const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
+    if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid customer email address." });
+    if (!/^\d{1,8}(\.\d{1,2})?$/.test(amountInput) || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "Enter an amount greater than zero with up to 2 decimal places." });
+    if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
+    const invoice = {
+      id: "INV-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomBytes(3).toString("hex").toUpperCase(),
+      customer, email, amount: amount.toFixed(2), currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null
+    };
+    await pool.query(
+      "INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null]
+    );
+    invoices.push(invoice);
+    console.log("Created invoice " + invoice.id + " and saved it to PostgreSQL.");
+    return res.status(201).json({ invoice });
+  } catch (error) {
+    console.error("Invoice creation failed:", error.message);
+    return res.status(500).json({ error: "Could not save the invoice. Please try again." });
+  }
+});
 
 
 async function createPayPalOrderForInvoice(invoice) {
