@@ -965,12 +965,53 @@ function renderRecoveryInvoices() {
             helper.className = "recovery-email-helper error-message";
             return;
           }
-          const mailto = "mailto:" + encodeURIComponent(recipient) +
+          const mailto = "mailto:" + recipient +
             "?subject=" + encodeURIComponent(subject) +
             "&body=" + encodeURIComponent(message);
-          helper.textContent = "Opening your email app with the customer address and reminder. Review it, then press Send in your email app.";
+          helper.textContent = "Requesting your default email app. If nothing opens, choose a webmail provider or copy the draft below.";
           helper.className = "recovery-email-helper";
           window.location.href = mailto;
+        });
+        const webmailSelect = document.createElement("select");
+        webmailSelect.className = "recovery-webmail-provider";
+        webmailSelect.setAttribute("aria-label", "Choose webmail provider");
+        [
+          ["", "Choose webmail…"],
+          ["outlook", "Outlook / Microsoft 365"],
+          ["gmail", "Gmail"],
+          ["zoho", "Zoho Mail"]
+        ].forEach(([value, label]) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = label;
+          webmailSelect.appendChild(option);
+        });
+        const webmailButton = document.createElement("button");
+        webmailButton.type = "button";
+        webmailButton.className = "recovery-open-webmail";
+        webmailButton.textContent = "Open Webmail";
+        webmailButton.addEventListener("click", () => {
+          const params = new URLSearchParams({ to: recipientInput.value.trim(), subject: subjectInput.value.trim(), body: messageArea.value });
+          let webmailUrl = "";
+          if (webmailSelect.value === "outlook") {
+            webmailUrl = "https://outlook.office.com/mail/deeplink/compose?" + params.toString();
+          } else if (webmailSelect.value === "gmail") {
+            webmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&" + params.toString();
+          } else if (webmailSelect.value === "zoho") {
+            webmailUrl = "https://mail.zoho.com/";
+          } else {
+            helper.textContent = "Choose Outlook, Gmail or Zoho Mail first.";
+            helper.className = "recovery-email-helper error-message";
+            return;
+          }
+          if (webmailSelect.value === "zoho") {
+            const copyText = "To: " + recipientInput.value.trim() + "\\nSubject: " + subjectInput.value.trim() + "\\n\\n" + messageArea.value;
+            navigator.clipboard?.writeText(copyText).catch(() => {});
+            helper.textContent = "Opening Zoho Mail. The draft is also available with Copy email if it is not prefilled.";
+          } else {
+            helper.textContent = "Opening your selected webmail in a new tab. Review the draft and press Send yourself.";
+          }
+          window.open(webmailUrl, "_blank", "noopener,noreferrer");
         });
         const copyButton = document.createElement("button");
         copyButton.type = "button";
@@ -986,7 +1027,7 @@ function renderRecoveryInvoices() {
             window.prompt("Copy the email below:", textToCopy);
           }
         });
-        actionsRow.append(sendButton, copyButton);
+        actionsRow.append(sendButton, webmailSelect, webmailButton, copyButton);
         const helper = document.createElement("p");
         helper.className = "recovery-email-helper";
         helper.textContent = "The email app will open with the recipient, subject and message filled in. You review and send it yourself.";
