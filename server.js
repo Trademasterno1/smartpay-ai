@@ -639,6 +639,7 @@ app.get("/api/public-invoices/:token", (req, res) => {
 
 app.post("/api/public-invoices/:token/create-order", async (req, res) => {
   try {
+    if (getWorkspaceRole() === "judge" && PAYPAL_BASE !== "https://api-m.sandbox.paypal.com") return res.status(403).json({ error: "Judge Demo checkout is restricted to PayPal Sandbox." });
     const invoice = invoices.find(item => item.paymentToken && item.paymentToken === req.params.token);
     if (!invoice) return res.status(404).json({ error: "This invoice link is invalid or has expired." });
     if (invoice.status === "PAID") return res.status(409).json({ error: "This invoice has already been paid." });
@@ -656,6 +657,7 @@ app.post("/api/public-invoices/:token/create-order", async (req, res) => {
 
 app.post("/api/public-invoices/:token/capture", async (req, res) => {
   try {
+    if (getWorkspaceRole() === "judge" && PAYPAL_BASE !== "https://api-m.sandbox.paypal.com") return res.status(403).json({ error: "Judge Demo checkout is restricted to PayPal Sandbox." });
     const invoice = invoices.find(item => item.paymentToken && item.paymentToken === req.params.token);
     if (!invoice) return res.status(404).json({ error: "This invoice link is invalid or has expired." });
     const orderId = String(req.body.orderId || "");
@@ -687,6 +689,7 @@ app.post("/api/public-invoices/:token/capture", async (req, res) => {
 
 app.post("/api/paypal/create-order", async (req, res) => {
   try {
+    if (getWorkspaceRole() === "judge" && PAYPAL_BASE !== "https://api-m.sandbox.paypal.com") return res.status(403).json({ error: "Judge Demo checkout is restricted to PayPal Sandbox." });
     const invoice = invoices.find(item => item.id === req.body.invoiceId);
     if (!invoice) return res.status(404).json({ error: "Invoice not found." });
     if (invoice.status === "PAID") return res.status(400).json({ error: "This invoice is already paid." });
@@ -699,6 +702,7 @@ app.post("/api/paypal/create-order", async (req, res) => {
 
 app.post("/api/paypal/capture-order", async (req, res) => {
   try {
+    if (getWorkspaceRole() === "judge" && PAYPAL_BASE !== "https://api-m.sandbox.paypal.com") return res.status(403).json({ error: "Judge Demo checkout is restricted to PayPal Sandbox." });
     const { orderId } = req.body;
     if (!orderId || typeof orderId !== "string") {
       return res.status(400).json({ error: "A valid PayPal order ID is required." });
