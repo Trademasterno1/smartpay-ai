@@ -563,11 +563,11 @@ app.post("/api/recovery/draft", async (req, res) => {
   const daysUntilDue = Math.ceil((Date.parse(invoice.dueDate + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000);
   const priority = daysOverdue > 0 || invoice.status === "OVERDUE" ? "HIGH" : daysUntilDue <= 3 ? "MEDIUM" : "LOW";
   const question = [
-    "Write a professional, polite and concise payment reminder draft for this invoice.",
-    "Return only a useful draft with the exact labels Subject: and Message:.",
+    "Write a professional, polite and concise customer-ready payment reminder email for this invoice.",
+    "Return only the email content with the exact labels Subject: and Message:. Do not include the word Draft in the subject or message, and do not add internal notes or explanations.",
     "Address the customer by company name. State the exact invoice ID, amount, currency and due date.",
     "Ask the customer to confirm the expected payment date. Do not threaten, add fees, invent facts, or claim payment was sent or received.",
-    "This is a draft for a human to review. Do not say that you sent it."
+    "The merchant will review and edit the email before sending it. Never claim that the email has already been sent."
   ].join(" ");
   const context = JSON.stringify({ today, invoice });
   try {
