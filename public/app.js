@@ -202,6 +202,7 @@ function renderRiskFallback(container, ranked, provider, missingInvoiceIds = [])
 
 const $ = (selector) => document.querySelector(selector);
 let invoices = [];
+let actionBriefAutoRequested = false;
 let paymentHistory = [];
 let currentMerchantProfile = { businessName: "", address: "", email: "", phone: "", taxNumber: "" };
 
@@ -741,6 +742,10 @@ async function generateActionCenterBrief() {
 function renderActionCenter() {
   const briefButton = document.querySelector("#generateActionBriefButton");
   if (briefButton) briefButton.onclick = generateActionCenterBrief;
+  if (!actionBriefAutoRequested && invoices.length) {
+    actionBriefAutoRequested = true;
+    generateActionCenterBrief();
+  }
   const container = document.querySelector("#actionCenterList");
   const count = document.querySelector("#actionCenterCount");
   if (!container) return;
