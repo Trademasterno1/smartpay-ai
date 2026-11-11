@@ -27,9 +27,9 @@ function renderRiskReview(container, raw, provider) {
     if (laterMatch) priorityText = laterMatch[1];
   }
   const cleanPriority = priorityText.replace(/^\s*[-—:]+\s*/, "").trim();
-  let priorityItems = [...cleanPriority.matchAll(/(?:^|\\s)([1-3])\\.\\s+([\\s\\S]*?)(?=\\s+[1-3]\\.\\s+|$)/g)];
+  let priorityItems = [...cleanPriority.matchAll(/(?:^|\s)([1-3])\.\s+([\s\S]*?)(?=\s+[1-3]\.\s+|$)/g)];
   if (!priorityItems.length && cleanPriority) {
-    const paragraphs = cleanPriority.split(/\\n\\s*\\n|(?=Within the next |Add a calendar )/i).map(item => item.trim()).filter(Boolean);
+    const paragraphs = cleanPriority.split(/\n\s*\n|(?=Within the next |Add a calendar )/i).map(item => item.trim()).filter(Boolean);
     priorityItems = paragraphs.map((item, index) => [item, String(index + 1), item]);
   }
   if (priorityItems.length) {
@@ -48,7 +48,7 @@ function renderRiskReview(container, raw, provider) {
   }
   let rendered = 0;
   sections.forEach(sectionText => {
-    sectionText = sectionText.split(/---\\s*Prioritized\\s+Merchant\\s+Actions/i)[0];
+    sectionText = sectionText.split(/---\s*Prioritized\s+Merchant\s+Actions/i)[0];
     const values = {};
     fields.forEach((field, index) => {
       const nextFields = fields.slice(index + 1).map(name => name.replace(/\s+/g, "\\s+")).join("|");
