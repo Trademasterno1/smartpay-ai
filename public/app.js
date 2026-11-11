@@ -285,7 +285,7 @@ function renderCashFlowForecast() {
             : dueSoon ? "Send a friendly due-date reminder and confirm the expected payment date."
             : "Monitor until the reminder window; verify the due date if missing.";
           return { invoice, risk, evidence, action, days, amount: Number(invoice.amount || 0) };
-        }).sort((a, b) => ({ HIGH: 0, MEDIUM: 1, LOW: 2 }[a.risk] - ({ HIGH: 0, MEDIUM: 1, LOW: 2 }[b.risk]) || b.amount - a.amount);
+        }).sort((a, b) => ({ HIGH: 0, MEDIUM: 1, LOW: 2 }[a.risk] - { HIGH: 0, MEDIUM: 1, LOW: 2 }[b.risk] || b.amount - a.amount));
         const sections = ranked.map((item, index) => {
           const invoice = item.invoice;
           const currency = invoice.currency || "USD";
