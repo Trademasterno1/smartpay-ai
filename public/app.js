@@ -88,8 +88,9 @@ function renderRiskReview(container, raw, provider) {
       const section = document.createElement("section"); section.className = "risk-top-actions";
       const heading = document.createElement("h4"); heading.textContent = "Prioritized merchant actions";
       const list = document.createElement("ol");
-      const items = prioritiesText.split(/\n/).filter(line => /^\s*[123]\.\s+/.test(line));
-      items.forEach(line => { const li = document.createElement("li"); li.textContent = line.replace(/^\s*[123]\.\s+/, "").trim(); list.appendChild(li); });
+      const actionText = prioritiesText.replace(/^Prioritized Merchant Actions\s*[-–—]*\s*/i, "").replace(/^---\s*/, "");
+      const items = [...actionText.matchAll(/(?:^|\s)([123])\.\s+([\s\S]*?)(?=\s+[123]\.\s+|$)/g)];
+      items.forEach(match => { const li = document.createElement("li"); li.textContent = match[2].trim(); list.appendChild(li); });
       if (list.children.length) { section.append(heading,list); wrapper.appendChild(section); }
     }
     const footer = document.createElement("div"); footer.className = "risk-provider";
