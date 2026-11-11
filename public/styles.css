@@ -17,3 +17,5 @@
 
 
 .monthly-controls{display:flex;align-items:center;gap:8px}.monthly-controls label{font-size:10px;color:#8290a3;font-weight:600}.monthly-controls select{border:1px solid #e1e8f0;border-radius:7px;padding:7px 9px;background:#fff;color:#52637a;font:11px "DM Sans";cursor:pointer}.monthly-chart-scroll{width:100%;overflow-x:auto}.monthly-chart[data-months="12"]{min-width:680px}.monthly-controls select:focus{outline:2px solid #d9e8ff;border-color:#8bb4ef}@media(max-width:480px){.monthly-controls{gap:5px}.monthly-controls select{max-width:128px}.monthly-chart[data-months="12"]{min-width:680px}}
+
+.pdf-button{border:1px solid #dce5f0;background:#fff;color:#35506f;padding:7px 9px;border-radius:6px;font:700 10px "DM Sans";cursor:pointer;margin-left:5px}.pdf-button:hover{background:#edf3fa}
