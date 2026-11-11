@@ -44,11 +44,11 @@
         </div>
       </section>
       <section class="panel monthly-performance" aria-labelledby="monthlyPerformanceTitle">
-        <div class="panel-heading"><div><div class="eyebrow">MONTHLY PERFORMANCE</div><h2 id="monthlyPerformanceTitle">Invoices vs. collections</h2></div><span class="tiny-tag">LAST 6 MONTHS</span></div>
+        <div class="panel-heading"><div><div class="eyebrow">MONTHLY PERFORMANCE</div><h2 id="monthlyPerformanceTitle">Invoices vs. collections</h2></div><div class="monthly-controls"><label for="monthlyRange">Period</label><select id="monthlyRange" aria-label="Monthly chart period"><option value="6" selected>Last 6 months</option><option value="12">Last 12 months</option></select></div></div>
         <p class="monthly-chart-note">Invoice value is grouped by creation month. Collections include only confirmed PayPal captures.</p>
-        <div id="monthlyChart" class="monthly-chart" role="img" aria-label="Monthly comparison of invoice value and confirmed PayPal collections">
+        <div class="monthly-chart-scroll"><div id="monthlyChart" class="monthly-chart" data-months="6" role="img" aria-label="Monthly comparison of invoice value and confirmed PayPal collections">
           <p class="chart-empty">Loading monthly performance…</p>
-        </div>
+        </div></div>
         <div class="monthly-chart-legend"><span><i class="legend-dot invoice-dot"></i> Invoices created</span><span><i class="legend-dot paid-dot"></i> Payments captured</span></div>
         <p class="monthly-chart-footnote">Existing demo invoices are first indexed in the month this chart was introduced. Future invoices use their actual creation dates.</p>
       </section>

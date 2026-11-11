@@ -201,13 +201,15 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/invoices", (_req, res) => res.json(invoices));
 
-app.get("/api/analytics/monthly", async (_req, res) => {
+app.get("/api/analytics/monthly", async (req, res) => {
   try {
     if (!pool || !databaseConnected) return res.status(503).json({ error: "Monthly analytics are unavailable because the database is not connected." });
+    const requestedMonths = Number.parseInt(req.query.months, 10);
+    const months = requestedMonths === 12 ? 12 : 6;
     const result = await pool.query(
       `WITH months AS (
          SELECT generate_series(
-           date_trunc('month', CURRENT_DATE) - interval '5 months',
+           date_trunc('month', CURRENT_DATE) - (($1::int - 1) * interval '1 month'),
            date_trunc('month', CURRENT_DATE),
            interval '1 month'
          ) AS month_start
@@ -233,7 +235,8 @@ app.get("/api/analytics/monthly", async (_req, res) => {
        FROM months
        LEFT JOIN invoice_totals USING (month_start)
        LEFT JOIN payment_totals USING (month_start)
-       ORDER BY months.month_start`
+       ORDER BY months.month_start`,
+      [months]
     );
     return res.json(result.rows);
   } catch (error) {

@@ -46,14 +46,20 @@ function renderFinancialDashboard() {
 async function refreshMonthlyAnalytics() {
   const container = $("#monthlyChart");
   if (!container) return;
+  const months = $("#monthlyRange")?.value === "12" ? 12 : 6;
+  const rangeLabel = $("#monthlyRange")?.selectedOptions[0]?.textContent || "Last 6 months";
+  const rangeTag = document.querySelector(".monthly-performance .tiny-tag");
+  if (rangeTag) rangeTag.textContent = rangeLabel.toUpperCase();
+  container.dataset.months = String(months);
   try {
-    const response = await fetch("/api/analytics/monthly", { cache: "no-store", headers: { "Accept": "application/json" } });
+    const response = await fetch("/api/analytics/monthly?months=" + months, { cache: "no-store", headers: { "Accept": "application/json" } });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Monthly analytics are unavailable.");
     if (!Array.isArray(data) || !data.length) {
       container.innerHTML = '<p class="chart-empty">No monthly data is available yet.</p>';
       return;
     }
+    container.style.gridTemplateColumns = "repeat(" + data.length + ", minmax(0, 1fr))";
     const maxValue = Math.max(1, ...data.flatMap(item => [Number(item.invoicedAmount || 0), Number(item.collectedAmount || 0)]));
     container.innerHTML = data.map(item => {
       const invoiced = Number(item.invoicedAmount || 0);
@@ -391,6 +397,7 @@ document.querySelectorAll(".suggestion").forEach(button => {
 
 $("#invoiceSearch").addEventListener("input", renderInvoices);
 $("#invoiceStatusFilter").addEventListener("change", renderInvoices);
+$("#monthlyRange").addEventListener("change", refreshMonthlyAnalytics);
 
 $("#cancelEditButton").addEventListener("click", () => {
   $("#createInvoiceForm").reset();
