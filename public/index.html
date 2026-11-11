@@ -17,6 +17,7 @@
       <a class="brand" href="#"><span class="brand-mark">S</span><span>smartpay<span class="brand-ai">.ai</span></span></a>
       <div class="workspace-label">WORKSPACE</div>
       <a class="nav-item active" href="#"><span>▦</span> Overview</a>
+      <a class="nav-item" href="#actionCenter"><span>♢</span> Action center</a>
       <a class="nav-item" href="#invoices"><span>▤</span> Invoices</a>
       <a class="nav-item" href="#assistant"><span>✳</span> AI assistant</a>
       <a class="nav-item" href="#payments"><span>↗</span> Payments</a>
@@ -30,6 +31,14 @@
         <article class="stat-card"><div class="stat-top">Collected <span class="green">●</span></div><div class="stat-value" id="paidAmount">$0.00</div><div class="stat-note" id="paidCount">0 paid invoices</div></article>
         <article class="stat-card"><div class="stat-top">Outstanding <span>◷</span></div><div class="stat-value" id="outstandingAmount">$0.00</div><div class="stat-note" id="unpaidCount">0 unpaid invoices</div></article>
         <article class="stat-card alert-card"><div class="stat-top">Overdue amount <span class="red">!</span></div><div class="stat-value" id="overdueAmount">$0.00</div><div class="stat-note" id="overdueCount">0 overdue invoices</div></article>
+      </section>
+      <section class="panel action-center-panel" id="actionCenter" aria-labelledby="actionCenterTitle">
+        <div class="panel-heading">
+          <div><div class="eyebrow">SMART FOLLOW-UP · LIVE INVOICE DATA</div><h2 id="actionCenterTitle">AI Action Center</h2></div>
+          <span class="tiny-tag" id="actionCenterCount">Checking invoices…</span>
+        </div>
+        <p class="action-center-intro">A prioritized view of overdue invoices and invoices due within 48 hours. Recommendations are based on your invoice records; you stay in control of every reminder and payment.</p>
+        <div class="action-center-list" id="actionCenterList" aria-live="polite"><p class="action-center-empty">Loading follow-ups…</p></div>
       </section>
       <section class="panel financial-overview" aria-labelledby="financialOverviewTitle">
         <div class="panel-heading"><div><div class="eyebrow">CASH FLOW SNAPSHOT</div><h2 id="financialOverviewTitle">Collection overview</h2></div><span class="tiny-tag">LIVE INVOICE DATA</span></div>
