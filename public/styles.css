@@ -446,3 +446,23 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 /* Clear distinction between AI advice and executed actions */
 .ai-action-disclaimer{display:block;width:100%;max-width:100%;box-sizing:border-box;margin:0 0 12px;padding:10px 12px;border:1px solid #eadfbf;border-radius:9px;background:#fffaf0;color:#785b20;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
 .ai-response-rich .ai-action-disclaimer{margin-bottom:14px}
+
+
+/* Structured invoice cards in the general AI assistant */
+.assistant-invoice-card{display:grid;gap:10px;min-width:0;max-width:100%;padding:14px;border:1px solid #e3eaf2;border-radius:13px;background:#fff;box-shadow:0 4px 14px rgba(23,36,58,.04);box-sizing:border-box;overflow:hidden}
+.assistant-invoice-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.assistant-invoice-head h3{margin:0;color:#17243a;font:800 13px Manrope,sans-serif;overflow-wrap:anywhere}
+.assistant-invoice-customer{margin:-5px 0 0;color:#64748b;font-size:11px}
+.assistant-risk-pill{flex:0 0 auto;padding:5px 8px;border-radius:20px;font-size:9px;font-weight:800;letter-spacing:.4px}
+.assistant-risk-pill.HIGH{background:#fff0f0;color:#b6424a}
+.assistant-risk-pill.MEDIUM{background:#fff7e7;color:#9b6800}
+.assistant-risk-pill.LOW{background:#eaf7f0;color:#168257}
+.assistant-invoice-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.assistant-invoice-fact{display:grid;gap:4px;min-width:0;padding:8px;border-radius:8px;background:#f6f8fb}
+.assistant-invoice-fact span{color:#8290a3;font-size:9px;font-weight:800;letter-spacing:.45px}
+.assistant-invoice-fact strong{color:#24364f;font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.assistant-invoice-evidence,.assistant-invoice-action{display:grid;gap:4px;color:#42516a;font-size:11px;line-height:1.6;overflow-wrap:anywhere;word-break:break-word}
+.assistant-invoice-evidence>strong,.assistant-invoice-action>strong{color:#24364f;font-size:10px;letter-spacing:.35px}
+.assistant-invoice-action{padding:10px;border-left:3px solid #1769e0;border-radius:7px;background:#f2f7ff}
+.assistant-invoice-card a{overflow-wrap:anywhere;word-break:break-all}
+@media(max-width:520px){.assistant-invoice-card{padding:11px;gap:9px}.assistant-invoice-fact{padding:7px}.assistant-invoice-evidence,.assistant-invoice-action{font-size:10px}}
