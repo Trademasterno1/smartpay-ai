@@ -443,13 +443,13 @@ app.get("/api/analytics/monthly", async (req, res) => {
        invoice_totals AS (
          SELECT date_trunc('month', created_at) AS month_start,
                 SUM(amount)::numeric(14,2)::text AS amount, COUNT(*)::int AS invoice_count
-         FROM invoices
+         FROM ${workspaceTable("invoices")}
          GROUP BY 1
        ),
        payment_totals AS (
          SELECT date_trunc('month', created_at) AS month_start,
                 SUM(amount)::numeric(14,2)::text AS amount, COUNT(*)::int AS payment_count
-         FROM payment_events
+         FROM ${workspaceTable("payments")}
          WHERE event_type = 'PAYMENT_CAPTURED'
          GROUP BY 1
        )
@@ -481,7 +481,7 @@ app.get("/api/payments", async (_req, res) => {
               pe.details->>'captureId' AS "captureId",
               pe.details->>'status' AS "paypalStatus",
               pe.created_at AS "createdAt"
-       FROM payment_events pe
+       FROM ${workspaceTable("payments")} pe
        JOIN invoices i ON i.id = pe.invoice_id
        ORDER BY pe.created_at DESC
        LIMIT 100`
