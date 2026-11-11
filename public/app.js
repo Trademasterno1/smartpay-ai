@@ -7,9 +7,13 @@ function escapeHTML(value) {
 
 function renderRiskReview(container, raw, provider) {
   const source = String(raw || "");
-  const parts = source.split("|").map(part => part.trim()).filter(Boolean);
-  const headerIndex = parts.findIndex(part => part === "#");
   const clean = value => String(value || "").replace(/<([^>]+)>/g, "$1").replace(/\*\*/g, "").replace(/\`/g, "").trim();
+  // Normalize Markdown emphasis before locating the header; providers often return **#** and **Invoice ID**.
+  const parts = source.split("|").map(part => clean(part)).filter(Boolean);
+  const invoiceHeaderIndex = parts.findIndex(part => /invoice\\s*id/i.test(part));
+  const headerIndex = invoiceHeaderIndex > 0 && parts[invoiceHeaderIndex - 1] === "#"
+    ? invoiceHeaderIndex - 1
+    : parts.findIndex(part => clean(part) === "#");
   const styleId = "smartpay-risk-review-styles";
   if (!document.getElementById(styleId)) {
     const style = document.createElement("style");
