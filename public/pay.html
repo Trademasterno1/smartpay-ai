@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Secure invoice payment powered by SmartPay AI.">
+  <title>Pay invoice — SmartPay AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f5f7fb;color:#17243a;font-family:"DM Sans",sans-serif;display:grid;place-items:center;padding:22px}
+    .card{width:min(100%,620px);background:#fff;border:1px solid #e7ecf3;border-radius:18px;padding:30px;box-shadow:0 18px 50px rgba(23,36,58,.07)}
+    .brand{font:800 21px Manrope,sans-serif;letter-spacing:-.8px}.brand span{color:#1769e0}.eyebrow{font-size:10px;letter-spacing:1.4px;color:#8b98a9;font-weight:700;margin-top:30px}
+    h1{font:800 25px Manrope,sans-serif;margin:8px 0 4px}.muted{color:#8290a3;font-size:13px;line-height:1.6}
+    .merchant{margin-top:20px;padding:15px;background:#f7f9fc;border:1px solid #edf1f6;border-radius:10px}.merchant strong{display:block;font-size:15px;margin-bottom:5px}.merchant p{margin:3px 0;color:#718096;font-size:11px;line-height:1.5}
+    .invoice-meta{display:flex;justify-content:space-between;gap:15px;margin:22px 0 10px;font-size:11px;color:#7d8a9c}.items{width:100%;border-collapse:collapse;margin-top:8px}.items th{text-align:left;font-size:9px;letter-spacing:.8px;color:#99a4b2;padding:10px 5px;border-bottom:1px solid #edf1f6}.items td{font-size:12px;padding:12px 5px;border-bottom:1px solid #f0f2f6}.items th:last-child,.items td:last-child{text-align:right}.total{display:flex;justify-content:space-between;align-items:center;margin:20px 0 24px;font-size:13px;color:#718096}.total strong{font:800 27px Manrope,sans-serif;color:#17243a}
+    button{width:100%;border:0;border-radius:9px;background:#0070ba;color:white;padding:15px;font:700 14px "DM Sans",sans-serif;cursor:pointer}button:disabled{opacity:.55;cursor:wait}
+    .status{padding:13px;border-radius:9px;background:#f4f7fb;color:#64748b;font-size:12px;line-height:1.6;margin-top:14px}.status.success{background:#eaf8f0;color:#13784f}.status.error{background:#fff0f0;color:#ad424b}
+    footer{text-align:center;color:#a0aab7;font-size:10px;margin-top:22px}
+    @media(max-width:480px){.card{padding:21px}.invoice-meta{flex-direction:column;gap:5px}h1{font-size:22px}}
+  </style>
+  <script src="/pay.js?v=20261111-public1" defer></script>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">smartpay<span>.ai</span></div>
+    <div class="eyebrow">SECURE INVOICE PAYMENT</div>
+    <h1>Invoice payment</h1>
+    <p class="muted">Review the invoice details below. You can pay securely through PayPal without creating a SmartPay AI account.</p>
+    <section class="merchant" id="merchant"><p>Loading merchant details…</p></section>
+    <div class="invoice-meta"><span id="invoiceId">Loading invoice…</span><span id="dueDate"></span></div>
+    <table class="items">
+      <thead><tr><th>DESCRIPTION</th><th>QTY</th><th>UNIT PRICE</th><th>AMOUNT</th></tr></thead>
+      <tbody id="lineItems"><tr><td colspan="4">Loading invoice items…</td></tr></tbody>
+    </table>
+    <div class="total"><span>Total due</span><strong id="amount">—</strong></div>
+    <button id="payButton" type="button" disabled>Continue to PayPal</button>
+    <div class="status" id="message" role="status" aria-live="polite">Loading secure invoice…</div>
+    <footer>Payment securely processed by PayPal · SmartPay AI</footer>
+  </main>
+</body>
+</html>
