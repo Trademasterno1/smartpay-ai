@@ -482,7 +482,7 @@ app.get("/api/payments", async (_req, res) => {
               pe.details->>'status' AS "paypalStatus",
               pe.created_at AS "createdAt"
        FROM ${workspaceTable("payments")} pe
-       JOIN invoices i ON i.id = pe.invoice_id
+       JOIN ${workspaceTable("invoices")} i ON i.id = pe.invoice_id
        ORDER BY pe.created_at DESC
        LIMIT 100`
     );
