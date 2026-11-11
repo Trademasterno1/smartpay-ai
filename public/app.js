@@ -451,11 +451,9 @@ function renderCashFlowForecast() {
       const outstanding = invoices.filter(invoice => invoice.status !== "PAID");
       const answer = String(data.answer || "").trim();
       const invoiceIdCounts = outstanding.map(invoice => {
-        const escapedId = String(invoice.id).replace(/[.*+?^${}()|[\]\\]/g, "\\      const completeAIReview = outstanding.length > 0 &&
-        outstanding.every(invoice => answer.includes(String(invoice.id))) &&
-        answer.length > 250;");
-        const matches = answer.match(new RegExp("(?:^|[^A-Z0-9_-])" + escapedId + "(?=$|[^A-Z0-9_-])", "gi")) || [];
-        return { id: String(invoice.id), count: matches.length };
+        const invoiceId = String(invoice.id);
+        const matches = answer.match(new RegExp("(?:^|[^A-Z0-9_-])" + invoiceId + "(?=$|[^A-Z0-9_-])", "gi")) || [];
+        return { id: invoiceId, count: matches.length };
       });
       const completeAIReview = outstanding.length > 0 &&
         invoiceIdCounts.every(item => item.count === 1) &&
