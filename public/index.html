@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js?v=20261111-financial-dashboard1" defer></script>
+  <script src="/app.js?v=20261111-monthly-performance1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -42,6 +42,15 @@
           </div>
           <p class="overdue-detail" id="overdueDetail">Overdue: $0.00 · 0 invoices. Included in outstanding.</p>
         </div>
+      </section>
+      <section class="panel monthly-performance" aria-labelledby="monthlyPerformanceTitle">
+        <div class="panel-heading"><div><div class="eyebrow">MONTHLY PERFORMANCE</div><h2 id="monthlyPerformanceTitle">Invoices vs. collections</h2></div><span class="tiny-tag">LAST 6 MONTHS</span></div>
+        <p class="monthly-chart-note">Invoice value is grouped by creation month. Collections include only confirmed PayPal captures.</p>
+        <div id="monthlyChart" class="monthly-chart" role="img" aria-label="Monthly comparison of invoice value and confirmed PayPal collections">
+          <p class="chart-empty">Loading monthly performance…</p>
+        </div>
+        <div class="monthly-chart-legend"><span><i class="legend-dot invoice-dot"></i> Invoices created</span><span><i class="legend-dot paid-dot"></i> Payments captured</span></div>
+        <p class="monthly-chart-footnote">Existing demo invoices are first indexed in the month this chart was introduced. Future invoices use their actual creation dates.</p>
       </section>
       <section class="content-grid">
         <article class="panel invoice-panel" id="invoices">

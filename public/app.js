@@ -43,6 +43,38 @@ function renderFinancialDashboard() {
   $("#overdueDetail").textContent = "Overdue: " + money(overdue / 100, currency) + " · " + overdueInvoices.length + (overdueInvoices.length === 1 ? " invoice" : " invoices") + ". Included in outstanding.";
 }
 
+async function refreshMonthlyAnalytics() {
+  const container = $("#monthlyChart");
+  if (!container) return;
+  try {
+    const response = await fetch("/api/analytics/monthly", { cache: "no-store", headers: { "Accept": "application/json" } });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Monthly analytics are unavailable.");
+    if (!Array.isArray(data) || !data.length) {
+      container.innerHTML = '<p class="chart-empty">No monthly data is available yet.</p>';
+      return;
+    }
+    const maxValue = Math.max(1, ...data.flatMap(item => [Number(item.invoicedAmount || 0), Number(item.collectedAmount || 0)]));
+    container.innerHTML = data.map(item => {
+      const invoiced = Number(item.invoicedAmount || 0);
+      const collected = Number(item.collectedAmount || 0);
+      const invoiceHeight = invoiced > 0 ? Math.max(3, (invoiced / maxValue) * 100) : 0;
+      const collectedHeight = collected > 0 ? Math.max(3, (collected / maxValue) * 100) : 0;
+      return `<div class="month-column">
+        <div class="month-bars">
+          <div class="month-bar-slot"><span class="month-bar invoice-bar" style="height:${invoiceHeight}%" title="Invoices: ${escapeHTML(money(invoiced, "USD"))}"></span></div>
+          <div class="month-bar-slot"><span class="month-bar collected-bar" style="height:${collectedHeight}%" title="Captured: ${escapeHTML(money(collected, "USD"))}"></span></div>
+        </div>
+        <span class="month-label">${escapeHTML(item.label)}</span>
+        <span class="month-values">${money(invoiced, "USD")} / ${money(collected, "USD")}</span>
+      </div>`;
+    }).join("");
+  } catch (error) {
+    console.error("Monthly analytics loading failed:", error);
+    container.innerHTML = '<p class="chart-empty">Monthly chart could not load. Refresh the page to retry.</p>';
+  }
+}
+
 function renderInvoices() {
   const query = ($("#invoiceSearch")?.value || "").trim().toLowerCase();
   const status = $("#invoiceStatusFilter")?.value || "ALL";
@@ -131,6 +163,7 @@ async function refreshDashboard() {
     await refreshPaymentHistory();
 
     renderFinancialDashboard();
+    await refreshMonthlyAnalytics();
   } catch (error) {
     console.error("Dashboard loading failed:", error);
     if (container) {

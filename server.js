@@ -43,6 +43,7 @@ async function initializeDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS payment_events (
       id BIGSERIAL PRIMARY KEY,
@@ -199,6 +200,47 @@ app.get("/api/health", (_req, res) => {
 
 
 app.get("/api/invoices", (_req, res) => res.json(invoices));
+
+app.get("/api/analytics/monthly", async (_req, res) => {
+  try {
+    if (!pool || !databaseConnected) return res.status(503).json({ error: "Monthly analytics are unavailable because the database is not connected." });
+    const result = await pool.query(
+      `WITH months AS (
+         SELECT generate_series(
+           date_trunc('month', CURRENT_DATE) - interval '5 months',
+           date_trunc('month', CURRENT_DATE),
+           interval '1 month'
+         ) AS month_start
+       ),
+       invoice_totals AS (
+         SELECT date_trunc('month', created_at) AS month_start,
+                SUM(amount)::numeric(14,2)::text AS amount, COUNT(*)::int AS invoice_count
+         FROM invoices
+         GROUP BY 1
+       ),
+       payment_totals AS (
+         SELECT date_trunc('month', created_at) AS month_start,
+                SUM(amount)::numeric(14,2)::text AS amount, COUNT(*)::int AS payment_count
+         FROM payment_events
+         WHERE event_type = 'PAYMENT_CAPTURED'
+         GROUP BY 1
+       )
+       SELECT to_char(months.month_start, 'Mon YY') AS label,
+              COALESCE(invoice_totals.amount, '0.00') AS "invoicedAmount",
+              COALESCE(payment_totals.amount, '0.00') AS "collectedAmount",
+              COALESCE(invoice_totals.invoice_count, 0) AS "invoiceCount",
+              COALESCE(payment_totals.payment_count, 0) AS "paymentCount"
+       FROM months
+       LEFT JOIN invoice_totals USING (month_start)
+       LEFT JOIN payment_totals USING (month_start)
+       ORDER BY months.month_start`
+    );
+    return res.json(result.rows);
+  } catch (error) {
+    console.error("Monthly analytics lookup failed:", error.message);
+    return res.status(500).json({ error: "Could not load monthly analytics." });
+  }
+});
 
 app.get("/api/payments", async (_req, res) => {
   try {
