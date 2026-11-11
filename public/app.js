@@ -233,7 +233,7 @@ function openInvoicePDF(invoiceId) {
     return;
   }
   const generatedOn = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  const statusLabel = escapeHTML(invoice.status);
+  const statusLabel = escapeHTML(getInvoiceDisplayStatus(invoice));
   const issuer = invoice.merchantProfile || currentMerchantProfile;
   const issuerName = escapeHTML(issuer.businessName || "Merchant details not set");
   const issuerDetails = [issuer.address, issuer.email, issuer.phone, issuer.taxNumber ? "TRN: " + issuer.taxNumber : ""].filter(Boolean).map(escapeHTML);
@@ -278,7 +278,7 @@ function openInvoicePDF(invoiceId) {
 function renderFinancialDashboard() {
   const total = invoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount || 0) * 100), 0);
   const paidInvoices = invoices.filter(invoice => invoice.status === "PAID");
-  const overdueInvoices = invoices.filter(invoice => invoice.status === "OVERDUE");
+  const overdueInvoices = invoices.filter(invoice => getInvoiceDisplayStatus(invoice) === "OVERDUE");
   const outstandingInvoices = invoices.filter(invoice => invoice.status !== "PAID");
   const paid = paidInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount || 0) * 100), 0);
   const overdue = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount || 0) * 100), 0);
@@ -516,19 +516,26 @@ async function refreshMonthlyAnalytics() {
   }
 }
 
+function getInvoiceDisplayStatus(invoice) {
+  if (invoice.status === "PAID") return "PAID";
+  const now = new Date();
+  const today = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+  return invoice.dueDate && invoice.dueDate < today ? "OVERDUE" : (invoice.status || "UNPAID");
+}
+
 function renderInvoices() {
   const query = ($("#invoiceSearch")?.value || "").trim().toLowerCase();
   const status = $("#invoiceStatusFilter")?.value || "ALL";
   const visibleInvoices = invoices.filter(invoice => {
     const matchesQuery = [invoice.id, invoice.customer, invoice.email].some(value => String(value || "").toLowerCase().includes(query));
-    return matchesQuery && (status === "ALL" || invoice.status === status);
+    return matchesQuery && (status === "ALL" || getInvoiceDisplayStatus(invoice) === status);
   });
   $("#invoiceRows").innerHTML = visibleInvoices.map(invoice => `
     <tr>
       <td><strong>${escapeHTML(invoice.id)}</strong><small>${escapeHTML(invoice.customer)}</small></td>
       <td>${escapeHTML(invoice.dueDate)}</td>
       <td class="amount">${money(invoice.amount, invoice.currency)}</td>
-      <td><span class="status ${escapeHTML(invoice.status)}">${escapeHTML(invoice.status)}</span></td>
+      <td><span class="status ${escapeHTML(getInvoiceDisplayStatus(invoice))}">${escapeHTML(getInvoiceDisplayStatus(invoice))}</span></td>
       <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
     </tr>`).join("");
   if (!visibleInvoices.length) $("#invoiceRows").innerHTML = '<tr><td colspan="5">No matching invoices.</td></tr>';
@@ -592,7 +599,7 @@ function downloadCSV(filename, headers, rows) {
 function exportInvoicesCSV() {
   downloadCSV('smartpay-invoices.csv',
     ['Invoice ID','Customer','Email','Amount','Currency','Status','Due Date'],
-    invoices.map(x => [x.id,x.customer,x.email,x.amount,x.currency,x.status,x.dueDate]));
+    invoices.map(x => [x.id,x.customer,x.email,x.amount,x.currency,getInvoiceDisplayStatus(x),x.dueDate]));
 }
 
 function exportPaymentsCSV() {
@@ -712,7 +719,8 @@ function renderRecoveryInvoices() {
   const container = $("#recoveryList");
   container.innerHTML = "";
   const outstanding = invoices.filter(invoice => invoice.status !== "PAID");
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
   const daysLateFor = invoice => Math.max(0, Math.floor(
     (Date.parse(today + "T00:00:00Z") - Date.parse(invoice.dueDate + "T00:00:00Z")) / 86400000
   ));
