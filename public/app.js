@@ -572,7 +572,7 @@ async function refreshMonthlyAnalytics() {
     container.querySelectorAll(".monthly-currency-group").forEach(group => {
       const groupIndex = Number(group.dataset.currencyGroup);
       const currency = group.querySelector(".monthly-currency-heading").textContent;
-      const items = currencyGroups.get(currency) || [];
+      const items = (currencyGroups.get(currency) || []).slice().sort((a,b) => String(a.month || a.label).localeCompare(String(b.month || b.label)));
       const buttons = [...group.querySelectorAll("[data-month-index]")];
       const detail = group.querySelector(".month-detail");
       buttons.forEach(button => button.addEventListener("click", () => {
