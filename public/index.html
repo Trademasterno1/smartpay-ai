@@ -45,6 +45,16 @@
           <p class="overdue-detail" id="overdueDetail">Overdue: $0.00 · 0 invoices. Included in outstanding.</p>
         </div>
       </section>
+
+      <section class="panel cash-flow-forecast-panel" aria-labelledby="cashFlowForecastTitle">
+        <div class="panel-heading">
+          <div><div class="eyebrow">RECEIVABLES OUTLOOK · 7 / 30 DAYS</div><h2 id="cashFlowForecastTitle">AI Cash Flow Forecast</h2></div>
+          <span class="tiny-tag">BASED ON LIVE INVOICES</span>
+        </div>
+        <p class="monthly-chart-note">A due-date outlook from your current unpaid invoices. Paid invoices are excluded; amounts are scheduled receivables, not guaranteed cash collections.</p>
+        <div id="cashFlowForecast"><p class="chart-empty">Calculating receivables outlook…</p></div>
+        <p class="monthly-chart-footnote">Forecast windows use invoice due dates: overdue, due within 7 days, due in 8–30 days, and beyond 30 days. Different currencies are shown separately.</p>
+      </section>
       <section class="panel monthly-performance" aria-labelledby="monthlyPerformanceTitle">
         <div class="panel-heading"><div><div class="eyebrow">MONTHLY PERFORMANCE</div><h2 id="monthlyPerformanceTitle">Invoices vs. collections</h2></div><div class="monthly-controls"><label for="monthlyRange">Period</label><select id="monthlyRange" aria-label="Monthly chart period"><option value="6" selected>Last 6 months</option><option value="12">Last 12 months</option></select></div></div>
         <p class="monthly-chart-note">Invoice value is grouped by creation month. Collections include only confirmed PayPal captures.</p>
