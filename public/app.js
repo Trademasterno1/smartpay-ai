@@ -8,6 +8,7 @@ function escapeHTML(value) {
 const $ = (selector) => document.querySelector(selector);
 let invoices = [];
 let paymentHistory = [];
+let currentMerchantProfile = { businessName: "", address: "", email: "", phone: "", taxNumber: "" };
 
 function money(amount, currency) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(amount));
@@ -66,6 +67,9 @@ function openInvoicePDF(invoiceId) {
   }
   const generatedOn = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   const statusLabel = escapeHTML(invoice.status);
+  const issuer = invoice.merchantProfile || currentMerchantProfile;
+  const issuerName = escapeHTML(issuer.businessName || "Merchant details not set");
+  const issuerDetails = [issuer.address, issuer.email, issuer.phone, issuer.taxNumber ? "TRN: " + issuer.taxNumber : ""].filter(Boolean).map(escapeHTML);
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -78,12 +82,12 @@ function openInvoicePDF(invoiceId) {
 </head>
 <body>
 <main class="sheet">
-<div class="top"><div><div class="brand">smartpay<span>.ai</span></div><p class="muted">Payment intelligence workspace</p></div><div class="invoice-title"><div class="eyebrow">INVOICE</div><h1>${escapeHTML(invoice.id)}</h1><span class="status ${statusLabel}">${statusLabel}</span></div></div>
+<div class="top"><div><div class="brand">${issuerName}</div>${issuerDetails.map(detail => `<p class="muted">${detail}</p>`).join("")}</div><div class="invoice-title"><div class="eyebrow">INVOICE</div><h1>${escapeHTML(invoice.id)}</h1><span class="status ${statusLabel}">${statusLabel}</span></div></div>
 <section class="details"><div><h3>BILL TO</h3><strong>${escapeHTML(invoice.customer)}</strong><p>${escapeHTML(invoice.email)}</p></div><div><h3>INVOICE DETAILS</h3><p>Generated: ${escapeHTML(generatedOn)}</p><p>Due date: <strong>${escapeHTML(invoice.dueDate)}</strong></p></div></section>
 <table class="line"><thead><tr><th>DESCRIPTION</th><th>QTY</th><th>UNIT PRICE</th><th>AMOUNT</th></tr></thead><tbody>${(Array.isArray(invoice.lineItems) && invoice.lineItems.length ? invoice.lineItems : [{description:"Services / goods",quantity:1,unitPrice:invoice.amount}]).map(item => { const lineTotal = Number(item.quantity) * Number(item.unitPrice); return `<tr><td>${escapeHTML(item.description)}</td><td>${escapeHTML(item.quantity)}</td><td>${escapeHTML(money(item.unitPrice, invoice.currency))}</td><td>${escapeHTML(money(lineTotal, invoice.currency))}</td></tr>`; }).join("")}</tbody></table>
 <div class="total"><div><span>TOTAL</span><span>${escapeHTML(money(invoice.amount, invoice.currency))}</span></div></div>
 <div class="note"><strong>DEMO DOCUMENT — NOT A TAX INVOICE</strong><br>This document was generated from the SmartPay AI demonstration workspace. Payments are restricted to PayPal Sandbox; no real funds are collected through this document.</div>
-<div class="footer">SmartPay AI · Generated on ${escapeHTML(generatedOn)}<br>Invoice status reflects the latest status available in the workspace at the time this document was generated.</div>
+<div class="footer">Generated with SmartPay AI · ${issuerName}<br>Invoice status reflects the latest status available in the workspace at the time this document was generated.</div>
 </main>
 <div class="actions"><button id="printInvoiceButton" type="button">Print / Save as PDF</button><p class="print-help">On iPhone or iPad, if the print window does not open, use the browser Share button, choose Print, then pinch out on the preview to save/share the PDF.</p></div>
 </body>
@@ -243,6 +247,41 @@ function exportPaymentsCSV() {
     ['Invoice ID','Customer','Amount','Currency','Result','PayPal Capture ID','PayPal Order ID','Date'],
     paymentHistory.map(x => [x.invoiceId,x.customer,x.amount,x.currency,x.eventType || 'PAYMENT_CAPTURED',x.captureId,x.paypalOrderId,x.createdAt]));
 }
+
+async function loadMerchantProfile() {
+  const response = await fetch("/api/merchant-profile", { cache: "no-store" });
+  if (!response.ok) throw new Error("Could not load merchant details.");
+  currentMerchantProfile = { ...currentMerchantProfile, ...await response.json() };
+  const form = $("#merchantProfileForm");
+  for (const field of Object.keys(currentMerchantProfile)) {
+    if (form.elements[field]) form.elements[field].value = currentMerchantProfile[field] || "";
+  }
+}
+
+$("#merchantProfileForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = $("#saveMerchantProfileButton");
+  const message = $("#merchantProfileMessage");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  message.textContent = "Saving merchant details…";
+  try {
+    const profile = Object.fromEntries(["businessName", "address", "email", "phone", "taxNumber"].map(field => [field, form.elements[field].value.trim()]));
+    const response = await fetch("/api/merchant-profile", { method: "PUT", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(profile) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Could not save merchant details.");
+    currentMerchantProfile = data.profile;
+    message.textContent = "Merchant details saved. New invoices will use this seller profile.";
+    message.className = "success-message";
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = "error-message";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save merchant details";
+  }
+});
 
 async function refreshDashboard() {
   const container = $("#recoveryList");
@@ -548,6 +587,7 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
 $("#addInvoiceItemButton").addEventListener("click", () => addInvoiceItemRow());
 addInvoiceItemRow();
 
+loadMerchantProfile().catch(error => console.error("Merchant profile loading failed:", error));
 refreshDashboard().catch(error => console.error(error));
 loadPayPalSdk().catch(error => console.error(error));
 $('#exportInvoicesButton').addEventListener('click', exportInvoicesCSV);
