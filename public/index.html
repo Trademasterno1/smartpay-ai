@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js?v=20261111-payment-history1" defer></script>
+  <script src="/app.js?v=20261111-csv-export1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -42,7 +42,7 @@
             </div>
             <div class="create-invoice-actions"><button type="submit" id="createInvoiceButton">Create invoice</button><button type="button" id="cancelEditButton" class="secondary-button" hidden>Cancel edit</button><span id="createInvoiceMessage" role="status" aria-live="polite">New invoices are saved to Neon as UNPAID. No payment is taken.</span></div>
           </form>
-          <div class="invoice-tools"><input id="invoiceSearch" type="search" placeholder="Search invoice, customer or email" aria-label="Search invoices"><select id="invoiceStatusFilter" aria-label="Filter invoices by status"><option value="ALL">All statuses</option><option value="PAID">Paid</option><option value="UNPAID">Unpaid</option><option value="OVERDUE">Overdue</option></select></div>
+          <div class="invoice-tools"><button type="button" class="export-button" id="exportInvoicesButton">Export invoices CSV</button><input id="invoiceSearch" type="search" placeholder="Search invoice, customer or email" aria-label="Search invoices"><select id="invoiceStatusFilter" aria-label="Filter invoices by status"><option value="ALL">All statuses</option><option value="PAID">Paid</option><option value="UNPAID">Unpaid</option><option value="OVERDUE">Overdue</option></select></div>
           <div class="table-wrap"><table><thead><tr><th>INVOICE / CUSTOMER</th><th>DUE DATE</th><th>AMOUNT</th><th>STATUS</th><th></th></tr></thead><tbody id="invoiceRows"></tbody></table></div>
           <div id="paypal-checkout-placeholder" class="checkout-slot"></div>
           <p class="table-foot">Payments are processed in PayPal Sandbox only.</p>
@@ -58,7 +58,7 @@
       </section>
       <section class="panel payment-history-panel" id="payments">
         <div class="panel-heading"><div><div class="eyebrow">AUDIT TRAIL</div><h2>Payment history</h2></div><span class="tiny-tag">LATEST 100</span></div>
-        <p class="recovery-intro">Confirmed PayPal captures recorded in the database. This is a read-only history.</p>
+        <div class="payment-history-toolbar"><p class="recovery-intro">Confirmed PayPal captures recorded in the database. This is a read-only history.</p><button type="button" class="export-button" id="exportPaymentsButton">Export payment history CSV</button></div>
         <div class="table-wrap"><table><thead><tr><th>INVOICE / CUSTOMER</th><th>AMOUNT</th><th>RESULT</th><th>CAPTURE ID</th><th>DATE</th></tr></thead><tbody id="paymentHistoryRows"><tr><td colspan="5">Loading payment history…</td></tr></tbody></table></div>
       </section>
       <section class="panel recovery-panel" id="recovery">

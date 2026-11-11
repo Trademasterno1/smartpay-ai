@@ -7,6 +7,7 @@ function escapeHTML(value) {
 
 const $ = (selector) => document.querySelector(selector);
 let invoices = [];
+let paymentHistory = [];
 
 function money(amount, currency) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(amount));
@@ -51,6 +52,32 @@ function startEditInvoice(invoiceId) {
   $("#createInvoiceMessage").textContent = "Editing " + invoice.id + ". Paid or PayPal-linked invoices are locked.";
   $("#createInvoiceMessage").className = "";
   form.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function downloadCSV(filename, headers, rows) {
+  const quote = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+  const csv = [headers, ...rows].map(row => row.map(quote).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportInvoicesCSV() {
+  downloadCSV('smartpay-invoices.csv',
+    ['Invoice ID','Customer','Email','Amount','Currency','Status','Due Date'],
+    invoices.map(x => [x.id,x.customer,x.email,x.amount,x.currency,x.status,x.dueDate]));
+}
+
+function exportPaymentsCSV() {
+  downloadCSV('smartpay-payment-history.csv',
+    ['Invoice ID','Customer','Amount','Currency','Result','PayPal Capture ID','PayPal Order ID','Date'],
+    paymentHistory.map(x => [x.invoiceId,x.customer,x.amount,x.currency,x.eventType || 'PAYMENT_CAPTURED',x.captureId,x.paypalOrderId,x.createdAt]));
 }
 
 async function refreshDashboard() {
@@ -117,7 +144,8 @@ async function refreshPaymentHistory() {
     const response = await fetch("/api/payments", { cache: "no-store", headers: { "Accept": "application/json" } });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Payment history is unavailable.");
-    if (!Array.isArray(data) || !data.length) {
+    paymentHistory = Array.isArray(data) ? data : [];
+    if (!paymentHistory.length) {
       container.innerHTML = '<tr><td colspan="5">No captured payments recorded yet.</td></tr>';
       return;
     }
@@ -364,3 +392,5 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
 
 refreshDashboard().catch(error => console.error(error));
 loadPayPalSdk().catch(error => console.error(error));
+$('#exportInvoicesButton').addEventListener('click', exportInvoicesCSV);
+$('#exportPaymentsButton').addEventListener('click', exportPaymentsCSV);
