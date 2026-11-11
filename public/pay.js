@@ -17,9 +17,16 @@
     });
     safeText("#invoiceId", data.id);
     safeText("#dueDate", "Due "+data.dueDate);
+    const items = Array.isArray(data.lineItems)&&data.lineItems.length?data.lineItems:[{description:"Invoice total",quantity:1,unitPrice:data.amount,lineTotal:data.amount}];
+    const subtotal = items.reduce((sum,item)=>sum+Number(item.quantity)*Number(item.unitPrice),0);
+    const taxRate = Number(data.taxRate||0);
+    const taxAmount = Math.max(0,Number(data.amount)-subtotal);
+    safeText("#subtotal", money(subtotal,data.currency));
+    safeText("#taxRate", String(taxRate));
+    safeText("#taxAmount", money(taxAmount,data.currency));
     safeText("#amount", money(data.amount,data.currency));
     const rows=$("#lineItems"); rows.innerHTML="";
-    (Array.isArray(data.lineItems)&&data.lineItems.length?data.lineItems:[{description:"Invoice total",quantity:1,unitPrice:data.amount,lineTotal:data.amount}]).forEach(item=>{
+    items.forEach(item=>{
       const tr=document.createElement("tr");
       [item.description, String(item.quantity), money(item.unitPrice,data.currency), money(item.lineTotal,data.currency)].forEach(value=>{const td=document.createElement("td");td.textContent=value;tr.appendChild(td);});
       rows.appendChild(tr);
