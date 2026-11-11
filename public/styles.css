@@ -902,3 +902,55 @@ footer span{color:#7f9ab6}
 #paymentHistoryRows tr:hover td:last-child {
   box-shadow: inset -1px 0 0 rgba(75,190,235,.28), inset 0 1px 0 rgba(75,190,235,.16), inset 0 -1px 0 rgba(75,190,235,.16);
 }
+
+
+/* AI response cards: dark, high-contrast surfaces consistent with the new dashboard. */
+.ai-response-rich,
+.ai-response-rich p,
+.ai-response-rich li,
+.ai-response-rich strong { color:#d4e6f6; }
+.ai-response-rich .ai-answer-heading { color:#f0f8ff!important; }
+.ai-response-rich a { color:#63d9ef!important; }
+.ai-response-rich .ai-answer-quote,
+.ai-response-rich blockquote,
+.ai-response-rich pre {
+  background:rgba(15,42,67,.92)!important;
+  border-color:rgba(75,190,220,.25)!important;
+  color:#d4e9f8!important;
+}
+.assistant-invoice-card,
+.assistant-mentioned-actions,
+.assistant-mentioned-action-row {
+  background:linear-gradient(145deg,rgba(15,40,63,.98),rgba(9,27,45,.98))!important;
+  border:1px solid rgba(94,169,204,.24)!important;
+  color:#d7e9f7!important;
+  box-shadow:0 5px 18px rgba(0,0,0,.16)!important;
+}
+.assistant-invoice-head h3,
+.assistant-invoice-fact strong,
+.assistant-invoice-evidence>strong,
+.assistant-invoice-action>strong { color:#f0f8ff!important; }
+.assistant-invoice-customer,
+.assistant-invoice-evidence,
+.assistant-invoice-action,
+.assistant-mentioned-actions,
+.assistant-mentioned-action-row { color:#c4d9eb!important; }
+.assistant-invoice-fact {
+  background:rgba(5,20,35,.72)!important;
+  border:1px solid rgba(112,163,199,.18)!important;
+}
+.assistant-invoice-fact span { color:#8faec8!important; }
+.assistant-invoice-action {
+  background:rgba(13,67,91,.38)!important;
+  border:1px solid rgba(62,191,213,.22)!important;
+  border-left:3px solid #37c6dc!important;
+  color:#d4e9f8!important;
+}
+.assistant-invoice-evidence { color:#c4d9eb!important; }
+.assistant-invoice-card a,
+.assistant-mentioned-actions a { color:#68dff0!important; }
+.assistant-invoice-card button,
+.assistant-mentioned-actions button,
+.assistant-mentioned-action-row button {
+  color:#eaf7ff!important;
+}
