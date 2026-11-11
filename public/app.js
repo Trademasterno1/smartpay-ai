@@ -1073,10 +1073,20 @@ function renderAssistantAnswer(container, answer, provider) {
   notice.className = "ai-action-disclaimer";
   notice.textContent = "AI guidance only · SmartPay has not sent messages, scheduled reminders, made calls, or taken payments.";
   container.appendChild(notice);
+
   const lines = String(answer || "").replace(/\r\n?/g, "\n").trim().split("\n");
   let list = null, listType = "", codeLines = null;
   const flushList = () => { if (list) container.appendChild(list); list = null; listType = ""; };
-  const flushCode = () => { if (codeLines) { const pre = document.createElement("pre"); const code = document.createElement("code"); code.textContent = codeLines.join("\n"); pre.appendChild(code); container.appendChild(pre); } codeLines = null; };
+  const flushCode = () => {
+    if (codeLines) {
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      code.textContent = codeLines.join("\n");
+      pre.appendChild(code);
+      container.appendChild(pre);
+    }
+    codeLines = null;
+  };
   const appendInline = (parent, value) => {
     const pattern = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|https?:\/\/[^\s<]+)/g;
     let cursor = 0;
@@ -1090,8 +1100,16 @@ function renderAssistantAnswer(container, answer, provider) {
         node = document.createElement("em"); node.textContent = token.slice(1, -1);
       } else {
         const safeUrl = token.replace(/[),.;]+$/, "");
-        node = document.createElement("a"); node.href = safeUrl; node.target = "_blank";
-        node.rel = "noopener noreferrer"; node.textContent = safeUrl;
+        try {
+          const parsed = new URL(safeUrl);
+          if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+            node = document.createElement("a");
+            node.href = parsed.href; node.target = "_blank";
+            node.rel = "noopener noreferrer"; node.textContent = safeUrl;
+          } else {
+            node = document.createTextNode(token);
+          }
+        } catch { node = document.createTextNode(token); }
       }
       parent.appendChild(node); cursor = match.index + token.length;
     }
@@ -1102,6 +1120,63 @@ function renderAssistantAnswer(container, answer, provider) {
     if (className) element.className = className;
     appendInline(element, value); container.appendChild(element);
   };
+  const renderInvoiceCard = (line) => {
+    const fields = line.split(";").map(part => {
+      const match = part.trim().match(/^([A-Z][A-Z ]*):\s*([\s\S]*)$/i);
+      return match ? [match[1].trim().toUpperCase(), match[2].trim()] : null;
+    }).filter(Boolean);
+    const data = Object.fromEntries(fields);
+    if (!data.INVOICE) return false;
+
+    const card = document.createElement("section");
+    card.className = "assistant-invoice-card";
+    const header = document.createElement("div");
+    header.className = "assistant-invoice-head";
+    const title = document.createElement("h3");
+    title.textContent = data.INVOICE;
+    header.appendChild(title);
+    if (data.RISK) {
+      const risk = document.createElement("span");
+      risk.className = "assistant-risk-pill " + data.RISK.toUpperCase();
+      risk.textContent = data.RISK.toUpperCase() + " RISK";
+      header.appendChild(risk);
+    }
+    card.appendChild(header);
+    if (data.CUSTOMER) {
+      const customer = document.createElement("p");
+      customer.className = "assistant-invoice-customer";
+      customer.textContent = data.CUSTOMER;
+      card.appendChild(customer);
+    }
+    const factGrid = document.createElement("div");
+    factGrid.className = "assistant-invoice-facts";
+    ["AMOUNT", "STATUS", "DUE DATE", "TIMING"].forEach(key => {
+      if (!data[key]) return;
+      const fact = document.createElement("div");
+      fact.className = "assistant-invoice-fact";
+      const label = document.createElement("span");
+      label.textContent = key;
+      const value = document.createElement("strong");
+      value.textContent = data[key];
+      fact.append(label, value);
+      factGrid.appendChild(fact);
+    });
+    if (factGrid.childElementCount) card.appendChild(factGrid);
+    ["EVIDENCE", "NEXT ACTION"].forEach(key => {
+      if (!data[key]) return;
+      const section = document.createElement("div");
+      section.className = key === "NEXT ACTION" ? "assistant-invoice-action" : "assistant-invoice-evidence";
+      const label = document.createElement("strong");
+      label.textContent = key === "NEXT ACTION" ? "Recommended next action" : "Evidence";
+      const copy = document.createElement("div");
+      appendInline(copy, data[key]);
+      section.append(label, copy);
+      card.appendChild(section);
+    });
+    container.appendChild(card);
+    return true;
+  };
+
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (/^\x60{3}/.test(line)) {
@@ -1111,9 +1186,13 @@ function renderAssistantAnswer(container, answer, provider) {
     }
     if (codeLines) { codeLines.push(rawLine); continue; }
     if (!line) { flushList(); continue; }
+    if (/^INVOICE\s*:/i.test(line) && renderInvoiceCard(line)) { flushList(); continue; }
     if (/^[-*_]{3,}$/.test(line)) { flushList(); container.appendChild(document.createElement("hr")); continue; }
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
     if (heading) { flushList(); addBlock("h" + (heading[1].length + 1), heading[2], "ai-answer-heading"); continue; }
+    if (/^Prioritized\s+Merchant\s+Actions\s*:?$/i.test(line)) {
+      flushList(); addBlock("h3", "Prioritized Merchant Actions", "ai-answer-heading"); continue;
+    }
     const bullet = line.match(/^(?:[-*•])\s+(.+)$/);
     const numbered = line.match(/^\d+[.)]\s+(.+)$/);
     if (bullet || numbered) {
@@ -1132,7 +1211,6 @@ function renderAssistantAnswer(container, answer, provider) {
     meta.textContent = "AI provider · " + provider; container.appendChild(meta);
   }
 }
-
 $("#askForm").addEventListener("submit", async event => {
   event.preventDefault();
   const question = $("#question").value.trim();
