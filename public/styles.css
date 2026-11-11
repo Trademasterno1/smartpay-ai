@@ -29,3 +29,62 @@
 .merchant-profile-panel{margin-top:18px;padding:16px;border:1px solid #e4eaf2;border-radius:9px;background:#fff}.merchant-profile-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.merchant-profile-heading h3{font:700 15px Manrope,sans-serif;margin:5px 0 0}.merchant-profile-help{font-size:11px;line-height:1.6;color:#8290a3;margin:10px 0 14px}.merchant-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.merchant-profile-grid label{display:grid;gap:6px;font-size:10px;font-weight:700;color:#7d8a9c}.merchant-profile-grid input,.merchant-profile-grid textarea{width:100%;min-width:0;border:1px solid #e1e8f0;border-radius:6px;padding:9px 8px;color:#26364d;font:11px "DM Sans";background:#fff}.merchant-profile-grid textarea{resize:vertical}.merchant-address-field{grid-column:1/-1}.merchant-profile-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}.merchant-profile-actions button{border:0;background:#1769e0;color:#fff;padding:9px 13px;border-radius:6px;font:700 11px "DM Sans";cursor:pointer}.merchant-profile-actions button:disabled{opacity:.55}.merchant-profile-actions span{font-size:10px;color:#8290a3}@media(max-width:480px){.merchant-profile-grid{grid-template-columns:1fr}.merchant-address-field{grid-column:auto}}
 
 .share-button{border:1px solid #dceee5;background:#f2fbf6;color:#19764f;padding:7px 9px;border-radius:6px;font:700 10px "DM Sans";cursor:pointer;margin-left:5px;white-space:nowrap}.share-button:hover{background:#e5f7ef}
+
+
+/* SmartPay AI visual refresh — responsive product dashboard */
+:root{--ink:#14243b;--muted:#718198;--line:#e6ebf2;--paper:#f4f7fb;--blue:#245fe8;--blue-dark:#1749bd;--mint:#e9f8f0;--green:#13845b;--red:#c64d54;--shadow:0 12px 34px rgba(26,48,83,.055)}
+body{background:radial-gradient(ellipse at 78% 0%,rgba(224,235,255,.62),transparent 34%),var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased}
+.sidebar{background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-right-color:#e8edf4;padding:32px 19px}
+.brand{font-size:21px;letter-spacing:-1.1px}.brand-mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#203c66,#122541);box-shadow:0 5px 12px rgba(20,42,73,.18)}
+.workspace-label{margin-top:48px}
+.nav-item{display:flex;align-items:center;gap:4px;padding:12px 13px;border-radius:10px;transition:background .18s,color .18s}
+.nav-item:hover{background:#f4f7fc;color:#244d91}.nav-item.active{background:#edf3ff;color:#245fe8}
+.sandbox-pill{border-radius:9px;background:#f0faf5;border-color:#d9efe3;color:#19764f}
+.main{padding:38px 46px 34px;max-width:1540px}
+.topbar{margin-bottom:26px}.topbar h1{font-size:30px;letter-spacing:-1.35px}.subhead{font-size:13px}
+.avatar{width:42px;height:42px;border:1px solid #dce6f4;background:linear-gradient(145deg,#f1f5fc,#e5edf9);color:#29476e}
+.stat-card,.panel{border-color:#e7ecf3;border-radius:16px;box-shadow:var(--shadow)}
+.stat-card{padding:20px 21px;transition:transform .18s,box-shadow .18s}.stat-card:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(26,48,83,.09)}
+.stat-top{font-size:11px;letter-spacing:.1px}.stat-value{font-size:28px;letter-spacing:-1.2px;margin:14px 0 4px}.stat-note{font-size:10px}
+.panel{padding:24px}.panel h2,.assistant-panel h2{font-size:18px;letter-spacing:-.55px}
+.tiny-tag{border-radius:6px;background:#f1f5fa;color:#718198;letter-spacing:.55px}
+.financial-overview,.monthly-performance{box-shadow:var(--shadow)}
+.collection-summary strong{font-size:34px;letter-spacing:-1.4px}.collection-bar{height:12px;background:#eef2f7}.collection-bar-paid{background:linear-gradient(90deg,#13845b,#35b985)}.collection-bar-open{background:#efc46c}
+.content-grid{gap:19px}.invoice-panel{padding:24px}
+.merchant-profile-panel{border-radius:12px;background:linear-gradient(145deg,#fbfcff,#f7f9fd);border-color:#e8edf5;padding:18px}
+.merchant-profile-grid input,.merchant-profile-grid textarea,.create-invoice-fields input,.invoice-item-row input,.invoice-tools input,.invoice-tools select,.monthly-controls select{border-color:#dfe6ef;border-radius:8px;padding:10px 11px;font-size:12px;transition:border-color .15s,box-shadow .15s}
+.merchant-profile-grid input:focus,.merchant-profile-grid textarea:focus,.create-invoice-fields input:focus,.invoice-item-row input:focus,.invoice-tools input:focus,.invoice-tools select:focus{outline:0;border-color:#8eafea;box-shadow:0 0 0 3px rgba(36,95,232,.09)}
+.create-invoice-form{border-radius:12px;background:#fff;border-color:#e8edf4;padding:17px}
+.create-invoice-fields label,.merchant-profile-grid label{font-size:10px;letter-spacing:.1px}
+.create-invoice-actions button,.merchant-profile-actions button{background:linear-gradient(135deg,#2869f0,#1d54cf);border-radius:8px;padding:10px 15px;box-shadow:0 5px 12px rgba(36,95,232,.16);transition:transform .15s,box-shadow .15s}
+.create-invoice-actions button:hover,.merchant-profile-actions button:hover,.draft-button:hover{transform:translateY(-1px);box-shadow:0 7px 15px rgba(36,95,232,.2)}
+.secondary-button,.edit-button,.pdf-button,.export-button{border-radius:8px;padding:8px 11px}
+.export-button:hover,.secondary-button:hover,.edit-button:hover,.pdf-button:hover{border-color:#bfd0e8;background:#f3f7fd}
+.line-items-editor{border-color:#e8edf4}.line-items-total{padding-top:9px}
+.invoice-tools{gap:8px}.invoice-tools input,.invoice-tools select{min-height:38px}
+table{min-width:560px}th{padding:13px 9px;font-size:9px}td{padding:15px 9px;font-size:11px}tbody tr:hover{background:#fafcff}
+.status{border-radius:20px;padding:5px 9px;letter-spacing:.15px}
+.pay-button,.share-button{border-radius:7px;padding:8px 10px}
+.share-button{background:#eff9f3;border-color:#d9efe3;color:#18764f}
+.ai-icon{background:linear-gradient(145deg,#edf3ff,#e6edff);color:#245fe8;border-radius:11px}
+.suggestion{border-radius:9px;background:#f8faff;border-color:#e6edf8;padding:8px 10px}
+.suggestion:hover{background:#eef4ff}
+.ask-row{border-radius:10px;padding:5px}.ask-row:focus-within{border-color:#9db9ed;box-shadow:0 0 0 3px rgba(36,95,232,.08)}
+.ask-row button{border-radius:8px;background:linear-gradient(135deg,#2869f0,#1d54cf)}
+.ai-response{border-radius:10px;background:linear-gradient(145deg,#f8faff,#f4f7fc);border-color:#e9eef6}
+.recovery-item{border-radius:11px;padding:15px;border-color:#e9eef5}.draft-button{border-radius:8px;background:linear-gradient(135deg,#2869f0,#1d54cf);padding:9px 12px}
+.recovery-draft{border-radius:9px;background:#f8faff}
+.payment-history-panel,.recovery-panel{box-shadow:var(--shadow)}
+.monthly-chart{min-height:205px}.month-bars{height:150px}
+footer{padding:6px 2px 12px;letter-spacing:1.1px}
+button,select{touch-action:manipulation}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(36,95,232,.22);outline-offset:2px}
+@media(max-width:900px){.main{padding:28px 22px}.sidebar{width:190px}}
+@media(max-width:600px){
+ .main{padding:21px 13px 28px}.topbar{align-items:flex-start;margin-bottom:20px}.topbar h1{font-size:24px}.stats{gap:9px}.stat-card{padding:14px 13px;border-radius:12px}.stat-value{font-size:21px;margin:10px 0 3px}.stat-top{font-size:10px}.stat-note{font-size:9px}
+ .panel{padding:16px;border-radius:13px}.panel h2,.assistant-panel h2{font-size:16px}.financial-overview-body{margin-top:16px}.collection-summary strong{font-size:30px}
+ .merchant-profile-panel{padding:14px}.create-invoice-form{padding:13px}.invoice-tools input,.invoice-tools select{width:100%;min-height:42px}.invoice-tools .export-button{width:100%}
+ .line-items-heading{gap:8px}.line-items-heading strong{font-size:11px}.create-invoice-actions{align-items:stretch}.create-invoice-actions button,.merchant-profile-actions button{min-height:42px}.create-invoice-actions span,.merchant-profile-actions span{line-height:1.5}
+ .payment-history-toolbar{gap:10px}.recovery-item{padding:12px}.recovery-actions{flex-wrap:wrap}.monthly-controls{align-items:flex-end}
+ footer{font-size:9px;line-height:1.6}footer span{display:block;float:none;margin-top:5px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
