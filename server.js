@@ -176,7 +176,8 @@ async function askGemini(question, context) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: "SMARTPAY_AI_SYSTEM_INSTRUCTION" }] },
+        systemInstruction: { parts: [{ text: SMARTPAY_AI_SYSTEM_INSTRUCTION }] },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1800 },
         contents: [{ parts: [{ text: "Invoice data: " + context + "\nUser question: " + question }] }]
       })
     },
