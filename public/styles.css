@@ -435,3 +435,9 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 .ai-response-rich hr{border:0;border-top:1px solid #e4eaf2;width:100%;margin:3px 0}
 .ai-answer-provider{font-size:9px;color:#8795a8;border-top:1px solid #e7edf5;padding-top:8px;margin-top:4px;letter-spacing:.2px}
 @media(max-width:600px){.assistant-panel,.ai-response{min-width:0;max-width:100%;width:100%;box-sizing:border-box}.ai-response-rich{font-size:11px;line-height:1.65;gap:8px}.ai-response-rich .ai-answer-heading{font-size:12px}.ai-response-rich ul,.ai-response-rich ol{padding-left:18px}}
+
+/* Safe deletion is available only for unpaid invoices with no PayPal order. */
+.delete-button{border:1px solid #f0d5d7;background:#fff;color:#a43f4b;padding:7px 9px;border-radius:6px;font:700 10px "DM Sans";cursor:pointer;margin-right:5px}
+.delete-button:hover:not(:disabled){background:#fff5f5;border-color:#e8b9be}
+.delete-button:disabled{opacity:.6;cursor:wait}
+@media(max-width:760px){.invoice-actions-cell{white-space:normal;min-width:190px}.invoice-actions-cell button{margin:3px 4px 3px 0}}
