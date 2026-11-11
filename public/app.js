@@ -218,7 +218,7 @@ function renderCashFlowForecast() {
   container.appendChild(recommendation);
 }
 
-function refreshMonthlyAnalytics() {
+async function refreshMonthlyAnalytics() {
   const container = $("#monthlyChart");
   if (!container) return;
   const months = $("#monthlyRange")?.value === "12" ? 12 : 6;
