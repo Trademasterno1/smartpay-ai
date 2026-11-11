@@ -13,6 +13,49 @@ function money(amount, currency) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(amount));
 }
 
+function addInvoiceItemRow(item = {}) {
+  const row = document.createElement("div");
+  row.className = "invoice-item-row";
+  row.innerHTML = `
+    <input class="item-description" type="text" maxlength="300" placeholder="Description (e.g. Consulting service)" aria-label="Item description" required>
+    <input class="item-quantity" type="number" min="0.001" max="999999" step="0.001" placeholder="Qty" aria-label="Quantity" required>
+    <input class="item-unit-price" type="number" min="0.01" max="99999999.99" step="0.01" placeholder="Unit price" aria-label="Unit price" required>
+    <strong class="item-row-total">$0.00</strong>
+    <button type="button" class="remove-item-button" aria-label="Remove item">×</button>`;
+  row.querySelector(".item-description").value = item.description || "";
+  row.querySelector(".item-quantity").value = item.quantity ?? 1;
+  row.querySelector(".item-unit-price").value = item.unitPrice ?? "";
+  $("#invoiceItemRows").appendChild(row);
+  row.querySelectorAll("input").forEach(input => input.addEventListener("input", updateInvoiceItemsTotal));
+  row.querySelector(".remove-item-button").addEventListener("click", () => {
+    if ($("#invoiceItemRows").children.length > 1) row.remove();
+    updateInvoiceItemsTotal();
+  });
+  updateInvoiceItemsTotal();
+}
+
+function collectInvoiceItems() {
+  return [...$("#invoiceItemRows").querySelectorAll(".invoice-item-row")].map(row => ({
+    description: row.querySelector(".item-description").value.trim(),
+    quantity: row.querySelector(".item-quantity").value,
+    unitPrice: row.querySelector(".item-unit-price").value
+  }));
+}
+
+function updateInvoiceItemsTotal() {
+  const rows = [...$("#invoiceItemRows").querySelectorAll(".invoice-item-row")];
+  let cents = 0;
+  rows.forEach(row => {
+    const qty = Number(row.querySelector(".item-quantity").value);
+    const price = Number(row.querySelector(".item-unit-price").value);
+    const lineCents = Number.isFinite(qty * price) ? Math.round(qty * price * 100) : 0;
+    cents += lineCents;
+    row.querySelector(".item-row-total").textContent = money(lineCents / 100, "USD");
+  });
+  $("#invoiceAmount").value = (cents / 100).toFixed(2);
+  $("#invoiceItemsTotal").textContent = money(cents / 100, "USD");
+}
+
 function openInvoicePDF(invoiceId) {
   const invoice = invoices.find(item => item.id === invoiceId);
   if (!invoice) return;
@@ -37,7 +80,7 @@ function openInvoicePDF(invoiceId) {
 <main class="sheet">
 <div class="top"><div><div class="brand">smartpay<span>.ai</span></div><p class="muted">Payment intelligence workspace</p></div><div class="invoice-title"><div class="eyebrow">INVOICE</div><h1>${escapeHTML(invoice.id)}</h1><span class="status ${statusLabel}">${statusLabel}</span></div></div>
 <section class="details"><div><h3>BILL TO</h3><strong>${escapeHTML(invoice.customer)}</strong><p>${escapeHTML(invoice.email)}</p></div><div><h3>INVOICE DETAILS</h3><p>Generated: ${escapeHTML(generatedOn)}</p><p>Due date: <strong>${escapeHTML(invoice.dueDate)}</strong></p></div></section>
-<table class="line"><thead><tr><th>DESCRIPTION</th><th>QTY</th><th>AMOUNT</th></tr></thead><tbody><tr><td>Services / goods</td><td>1</td><td>${escapeHTML(money(invoice.amount, invoice.currency))}</td></tr></tbody></table>
+<table class="line"><thead><tr><th>DESCRIPTION</th><th>QTY</th><th>UNIT PRICE</th><th>AMOUNT</th></tr></thead><tbody>${(Array.isArray(invoice.lineItems) && invoice.lineItems.length ? invoice.lineItems : [{description:"Services / goods",quantity:1,unitPrice:invoice.amount}]).map(item => { const lineTotal = Number(item.quantity) * Number(item.unitPrice); return `<tr><td>${escapeHTML(item.description)}</td><td>${escapeHTML(item.quantity)}</td><td>${escapeHTML(money(item.unitPrice, invoice.currency))}</td><td>${escapeHTML(money(lineTotal, invoice.currency))}</td></tr>`; }).join("")}</tbody></table>
 <div class="total"><div><span>TOTAL</span><span>${escapeHTML(money(invoice.amount, invoice.currency))}</span></div></div>
 <div class="note"><strong>DEMO DOCUMENT — NOT A TAX INVOICE</strong><br>This document was generated from the SmartPay AI demonstration workspace. Payments are restricted to PayPal Sandbox; no real funds are collected through this document.</div>
 <div class="footer">SmartPay AI · Generated on ${escapeHTML(generatedOn)}<br>Invoice status reflects the latest status available in the workspace at the time this document was generated.</div>
@@ -164,7 +207,9 @@ function startEditInvoice(invoiceId) {
   form.elements.invoiceId.value = invoice.id;
   form.elements.customer.value = invoice.customer;
   form.elements.email.value = invoice.email;
-  form.elements.amount.value = invoice.amount;
+  $("#invoiceItemRows").innerHTML = "";
+  (Array.isArray(invoice.lineItems) && invoice.lineItems.length ? invoice.lineItems : [{description:"Services / goods",quantity:1,unitPrice:invoice.amount}]).forEach(item => addInvoiceItemRow(item));
+  updateInvoiceItemsTotal();
   form.elements.dueDate.value = invoice.dueDate;
   $("#createInvoiceButton").textContent = "Save changes";
   $("#cancelEditButton").hidden = false;
@@ -452,6 +497,8 @@ $("#monthlyRange").addEventListener("change", refreshMonthlyAnalytics);
 
 $("#cancelEditButton").addEventListener("click", () => {
   $("#createInvoiceForm").reset();
+  $("#invoiceItemRows").innerHTML = "";
+  addInvoiceItemRow();
   $("#editingInvoiceId").value = "";
   $("#createInvoiceButton").textContent = "Create invoice";
   $("#cancelEditButton").hidden = true;
@@ -467,7 +514,7 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
   const originalText = button.textContent;
   const formData = new FormData(form);
   const invoiceId = String(formData.get("invoiceId") || "");
-  const payload = { customer: formData.get("customer"), email: formData.get("email"), amount: formData.get("amount"), dueDate: formData.get("dueDate") };
+  const payload = { customer: formData.get("customer"), email: formData.get("email"), amount: formData.get("amount"), dueDate: formData.get("dueDate"), lineItems: collectInvoiceItems() };
   button.disabled = true;
   button.textContent = "Saving…";
   message.textContent = invoiceId ? "Updating invoice in Neon…" : "Saving invoice to Neon…";
@@ -481,6 +528,8 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Could not save invoice.");
     form.reset();
+    $("#invoiceItemRows").innerHTML = "";
+    addInvoiceItemRow();
     $("#editingInvoiceId").value = "";
     $("#createInvoiceButton").textContent = "Create invoice";
     $("#cancelEditButton").hidden = true;
@@ -495,6 +544,9 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
     if (!invoiceId) button.textContent = originalText;
   }
 });
+
+$("#addInvoiceItemButton").addEventListener("click", () => addInvoiceItemRow());
+addInvoiceItemRow();
 
 refreshDashboard().catch(error => console.error(error));
 loadPayPalSdk().catch(error => console.error(error));
