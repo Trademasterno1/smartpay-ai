@@ -441,6 +441,31 @@ app.get("/api/health", (_req, res) => {
 });
 
 
+app.get("/api/invoices/page", (req, res) => {
+  const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.min(50, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 20));
+  const query = String(req.query.q || "").trim().toLowerCase();
+  const status = String(req.query.status || "ALL").toUpperCase();
+  const from = String(req.query.from || "");
+  const to = String(req.query.to || "");
+  const validDate = value => !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value + "T00:00:00Z")) && new Date(value + "T00:00:00Z").toISOString().slice(0, 10) === value);
+  if (!validDate(from) || !validDate(to) || (from && to && from > to)) return res.status(400).json({ error:"Choose a valid date range." });
+  const today = new Date().toISOString().slice(0,10);
+  const filtered = invoices.filter(invoice => {
+    const textMatch = !query || [invoice.id, invoice.customer, invoice.email].some(value => String(value || "").toLowerCase().includes(query));
+    const due = String(invoice.dueDate || "");
+    const dateMatch = (!from || due >= from) && (!to || due <= to);
+    const displayStatus = invoice.status === "PAID" ? "PAID" : (due && due < today ? "OVERDUE" : (invoice.status || "UNPAID"));
+    const statusMatch = status === "ALL" || displayStatus === status;
+    return textMatch && dateMatch && statusMatch;
+  }).sort((a,b) => String(b.dueDate || "").localeCompare(String(a.dueDate || "")));
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const offset = (safePage - 1) * pageSize;
+  return res.json({ items:filtered.slice(offset, offset + pageSize), total, page:safePage, pageSize, totalPages });
+});
+
 app.get("/api/invoices", (_req, res) => res.json(invoices));
 
 app.get("/api/merchant-profile", (_req, res) => res.json(getMerchantProfile()));
