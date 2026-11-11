@@ -189,7 +189,7 @@ function renderInvoices() {
       <td>${escapeHTML(invoice.dueDate)}</td>
       <td class="amount">${money(invoice.amount, invoice.currency)}</td>
       <td><span class="status ${escapeHTML(invoice.status)}">${escapeHTML(invoice.status)}</span></td>
-      <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
+      <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
     </tr>`).join("");
   if (!visibleInvoices.length) $("#invoiceRows").innerHTML = '<tr><td colspan="5">No matching invoices.</td></tr>';
   $("#invoiceRows").querySelectorAll("[data-invoice]").forEach(button => {
@@ -200,6 +200,19 @@ function renderInvoices() {
   });
   $("#invoiceRows").querySelectorAll("[data-pdf-invoice]").forEach(button => {
     button.addEventListener("click", () => openInvoicePDF(button.dataset.pdfInvoice));
+  });
+  $("#invoiceRows").querySelectorAll("[data-copy-payment-link]").forEach(button => {
+    button.addEventListener("click", async () => {
+      const url = window.location.origin + "/pay/" + encodeURIComponent(button.dataset.copyPaymentLink);
+      try {
+        await navigator.clipboard.writeText(url);
+        const original = button.textContent;
+        button.textContent = "Link copied";
+        setTimeout(() => { button.textContent = original; }, 1800);
+      } catch (_) {
+        window.prompt("Copy this secure customer payment link:", url);
+      }
+    });
   });
 }
 
