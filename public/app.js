@@ -724,7 +724,7 @@ async function generateActionCenterBrief() {
     const response = await fetch("/api/ai/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ question: "Act as the merchant's receivables operations assistant. Prepare today's concise AI Action Center briefing using ONLY the supplied invoice records and today's date. First summarize the most urgent priorities and total exposure where possible. Then list each relevant invoice by exact invoice ID, customer, amount/currency, due date and status. For each unpaid or overdue invoice recommend exactly one next step: COLLECT PAYMENT when a secure payment URL is available, otherwise PREPARE REMINDER when a customer email exists or can be added, otherwise explain the missing information. For PAID invoices, identify them as completed and recommend viewing or saving the invoice PDF; never recommend collecting or reminding for a PAID invoice. Mention due-soon invoices too. Do not invent payments, emails, dates, or actions. If there are no records in a category, say so. Use short headings and bullets." })
+      body: JSON.stringify({ question: "Act as the merchant's receivables operations assistant. Prepare today's concise AI Action Center briefing using ONLY the supplied invoice records and today's date. First summarize the most urgent priorities and total exposure where possible. Then list each relevant invoice by exact invoice ID, customer, amount/currency, due date and status. For each unpaid or overdue invoice recommend exactly one next step: COLLECT PAYMENT when a secure payment URL is available, otherwise PREPARE REMINDER when a customer email exists or can be entered by the merchant, otherwise explain the missing information. The invoice-specific action buttons shown beside this briefing are the execution controls; never claim they were clicked. For PAID invoices, identify them as completed and recommend viewing or saving the invoice PDF; never recommend collecting or reminding for a PAID invoice. Mention due-soon invoices too. Do not invent payments, emails, dates, or actions. If there are no records in a category, say so. Use short headings and bullets." })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "AI briefing is temporarily unavailable.");
@@ -853,11 +853,19 @@ function renderActionCenter() {
         document.querySelector("#recovery")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
-    const collect = document.createElement("button");
-    collect.type = "button";
-    collect.className = "action-center-secondary";
-    collect.textContent = "Collect Payment";
-    collect.addEventListener("click", () => openCollectionSession(invoice.id));
+    if (invoice.paymentToken) {
+      const collect = document.createElement("button");
+      collect.type = "button";
+      collect.className = "action-center-secondary";
+      collect.textContent = "Collect Payment";
+      collect.addEventListener("click", () => openCollectionSession(invoice.id));
+      controls.append(priority, reminder, collect);
+    } else {
+      const missingLink = document.createElement("span");
+      missingLink.className = "action-center-action-note";
+      missingLink.textContent = "Payment link will be created when you prepare the reminder.";
+      controls.append(priority, reminder, missingLink);
+    }
     const snooze = document.createElement("button");
     snooze.type = "button";
     snooze.className = "action-center-text";
@@ -878,7 +886,7 @@ function renderActionCenter() {
       saveActionCenterStorage(next);
       renderActionCenter();
     });
-    controls.append(priority, reminder, collect, snooze, dismiss);
+    controls.append(snooze, dismiss);
     card.append(details, controls);
     container.appendChild(card);
   });

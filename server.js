@@ -895,6 +895,7 @@ app.post("/api/ai/ask", async (req, res) => {
       amount: invoice.amount,
       currency: invoice.currency || "USD",
       status: invoice.status,
+      customerEmailAvailable: Boolean(String(invoice.email || "").trim()),
       dueDate: dueDateValid ? dueDate : null,
       dueDateValid,
       daysPastDue,
