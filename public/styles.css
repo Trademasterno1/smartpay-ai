@@ -441,3 +441,8 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 .delete-button:hover:not(:disabled){background:#fff5f5;border-color:#e8b9be}
 .delete-button:disabled{opacity:.6;cursor:wait}
 @media(max-width:760px){.invoice-actions-cell{white-space:normal;min-width:190px}.invoice-actions-cell button{margin:3px 4px 3px 0}}
+
+
+/* Clear distinction between AI advice and executed actions */
+.ai-action-disclaimer{display:block;width:100%;max-width:100%;box-sizing:border-box;margin:0 0 12px;padding:10px 12px;border:1px solid #eadfbf;border-radius:9px;background:#fffaf0;color:#785b20;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+.ai-response-rich .ai-action-disclaimer{margin-bottom:14px}
