@@ -421,3 +421,17 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 .logout-button{min-height:34px;padding:0 12px;border:1px solid #e3e9f1;border-radius:8px;background:#fff;color:#53647c;font:700 11px "DM Sans",sans-serif;cursor:pointer}
 .logout-button:hover{border-color:#b8c8df;color:#1e4e9b}
 @media(max-width:620px){.topbar-actions{gap:6px}.workspace-role{font-size:9px;padding:6px 7px}.logout-button{padding:0 8px;font-size:10px}.topbar .avatar{display:none}}
+
+/* SmartPay general AI assistant response formatting */
+.ai-response{min-width:0;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word}
+.ai-response-rich{white-space:normal;color:#42516a;font-size:12px;line-height:1.7;display:grid;gap:9px}
+.ai-response-rich p{margin:0;overflow-wrap:anywhere;word-break:break-word}
+.ai-response-rich .ai-answer-heading{font:800 13px Manrope,sans-serif;color:#1d2d45;margin:5px 0 0;line-height:1.45}
+.ai-response-rich ul,.ai-response-rich ol{margin:0;padding-left:21px;display:grid;gap:6px;min-width:0}
+.ai-response-rich li{padding-left:2px;overflow-wrap:anywhere;word-break:break-word}
+.ai-response-rich strong{color:#24364f;font-weight:800}
+.ai-response-rich a{color:#1769e0;text-decoration:underline;overflow-wrap:anywhere;word-break:break-all}
+.ai-response-rich .ai-answer-quote{margin:0;padding:9px 11px;border-left:3px solid #9bbcf0;background:#eef4fc;border-radius:0 7px 7px 0}
+.ai-response-rich hr{border:0;border-top:1px solid #e4eaf2;width:100%;margin:3px 0}
+.ai-answer-provider{font-size:9px;color:#8795a8;border-top:1px solid #e7edf5;padding-top:8px;margin-top:4px;letter-spacing:.2px}
+@media(max-width:600px){.assistant-panel,.ai-response{min-width:0;max-width:100%;width:100%;box-sizing:border-box}.ai-response-rich{font-size:11px;line-height:1.65;gap:8px}.ai-response-rich .ai-answer-heading{font-size:12px}.ai-response-rich ul,.ai-response-rich ol{padding-left:18px}}
