@@ -13,6 +13,36 @@ function money(amount, currency) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(amount));
 }
 
+function renderFinancialDashboard() {
+  const total = invoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount || 0) * 100), 0);
+  const paidInvoices = invoices.filter(invoice => invoice.status === "PAID");
+  const overdueInvoices = invoices.filter(invoice => invoice.status === "OVERDUE");
+  const outstandingInvoices = invoices.filter(invoice => invoice.status !== "PAID");
+  const paid = paidInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount || 0) * 100), 0);
+  const overdue = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount || 0) * 100), 0);
+  const outstanding = outstandingInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount || 0) * 100), 0);
+  const rate = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
+  const currency = invoices[0]?.currency || "USD";
+
+  $("#totalValue").textContent = money(total / 100, currency);
+  $("#totalInvoiceNote").textContent = invoices.length + (invoices.length === 1 ? " invoice in the workspace" : " invoices in the workspace");
+  $("#paidAmount").textContent = money(paid / 100, currency);
+  $("#paidCount").textContent = paidInvoices.length + (paidInvoices.length === 1 ? " paid invoice" : " paid invoices");
+  $("#outstandingAmount").textContent = money(outstanding / 100, currency);
+  $("#unpaidCount").textContent = outstandingInvoices.length + (outstandingInvoices.length === 1 ? " unpaid invoice" : " unpaid invoices");
+  $("#overdueAmount").textContent = money(overdue / 100, currency);
+  $("#overdueCount").textContent = overdueInvoices.length + (overdueInvoices.length === 1 ? " overdue invoice" : " overdue invoices");
+  $("#collectionRate").textContent = rate.toFixed(1) + "%";
+  $("#collectionCaption").textContent = total > 0
+    ? money(paid / 100, currency) + " collected from " + money(total / 100, currency) + " invoiced."
+    : "Create an invoice to start tracking collections.";
+  $("#collectedBar").style.width = rate + "%";
+  $("#outstandingBar").style.width = (100 - rate) + "%";
+  $("#chartPaidAmount").textContent = money(paid / 100, currency);
+  $("#chartOutstandingAmount").textContent = money(outstanding / 100, currency);
+  $("#overdueDetail").textContent = "Overdue: " + money(overdue / 100, currency) + " · " + overdueInvoices.length + (overdueInvoices.length === 1 ? " invoice" : " invoices") + ". Included in outstanding.";
+}
+
 function renderInvoices() {
   const query = ($("#invoiceSearch")?.value || "").trim().toLowerCase();
   const status = $("#invoiceStatusFilter")?.value || "ALL";
@@ -100,22 +130,7 @@ async function refreshDashboard() {
     renderRecoveryInvoices();
     await refreshPaymentHistory();
 
-    // Summary cards are secondary; keep the recovery workspace usable if this request fails.
-    try {
-      const summaryResponse = await fetch("/api/summary", {
-        cache: "no-store",
-        signal: controller.signal,
-        headers: { "Accept": "application/json" }
-      });
-      if (!summaryResponse.ok) throw new Error("Summary API returned HTTP " + summaryResponse.status);
-      const summary = await summaryResponse.json();
-      $("#totalValue").textContent = money(summary.totalValue, "USD");
-      $("#paidCount").textContent = summary.paidCount;
-      $("#unpaidCount").textContent = summary.unpaidCount;
-      $("#overdueCount").textContent = summary.overdueCount;
-    } catch (summaryError) {
-      console.warn("Summary cards could not be refreshed; recovery workspace is available:", summaryError);
-    }
+    renderFinancialDashboard();
   } catch (error) {
     console.error("Dashboard loading failed:", error);
     if (container) {

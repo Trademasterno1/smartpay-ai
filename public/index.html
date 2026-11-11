@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js?v=20261111-csv-export1" defer></script>
+  <script src="/app.js?v=20261111-financial-dashboard1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -23,11 +23,25 @@
     </aside>
     <main class="main">
       <header class="topbar"><div><div class="eyebrow">PAYMENT OPERATIONS · DEMO</div><h1>Good morning <span>✦</span></h1><p class="subhead">Here’s what’s happening with your payments.</p></div><div class="avatar">SP</div></header>
-      <section class="stats">
-        <article class="stat-card"><div class="stat-top">Total invoice value <span>↗</span></div><div class="stat-value" id="totalValue">$1,874.50</div><div class="stat-note">Across all sample invoices</div></article>
-        <article class="stat-card"><div class="stat-top">Paid invoices <span class="green">●</span></div><div class="stat-value" id="paidCount">1</div><div class="stat-note">Successfully captured</div></article>
-        <article class="stat-card"><div class="stat-top">Awaiting payment <span>◷</span></div><div class="stat-value" id="unpaidCount">2</div><div class="stat-note">Need follow-up</div></article>
-        <article class="stat-card alert-card"><div class="stat-top">Overdue <span class="red">!</span></div><div class="stat-value" id="overdueCount">1</div><div class="stat-note">Past their due date</div></article>
+      <section class="stats" aria-label="Financial summary">
+        <article class="stat-card"><div class="stat-top">Total invoiced <span>↗</span></div><div class="stat-value" id="totalValue">$0.00</div><div class="stat-note" id="totalInvoiceNote">Across all invoices</div></article>
+        <article class="stat-card"><div class="stat-top">Collected <span class="green">●</span></div><div class="stat-value" id="paidAmount">$0.00</div><div class="stat-note" id="paidCount">0 paid invoices</div></article>
+        <article class="stat-card"><div class="stat-top">Outstanding <span>◷</span></div><div class="stat-value" id="outstandingAmount">$0.00</div><div class="stat-note" id="unpaidCount">0 unpaid invoices</div></article>
+        <article class="stat-card alert-card"><div class="stat-top">Overdue amount <span class="red">!</span></div><div class="stat-value" id="overdueAmount">$0.00</div><div class="stat-note" id="overdueCount">0 overdue invoices</div></article>
+      </section>
+      <section class="panel financial-overview" aria-labelledby="financialOverviewTitle">
+        <div class="panel-heading"><div><div class="eyebrow">CASH FLOW SNAPSHOT</div><h2 id="financialOverviewTitle">Collection overview</h2></div><span class="tiny-tag">LIVE INVOICE DATA</span></div>
+        <div class="financial-overview-body">
+          <div class="collection-summary"><div><strong id="collectionRate">0%</strong><span>collection rate by value</span></div><p id="collectionCaption">No invoices recorded yet.</p></div>
+          <div class="collection-bar" role="img" aria-label="Collected and outstanding invoice values">
+            <span class="collection-bar-paid" id="collectedBar"></span><span class="collection-bar-open" id="outstandingBar"></span>
+          </div>
+          <div class="financial-legend">
+            <div><i class="legend-dot paid-dot"></i><span>Collected</span><strong id="chartPaidAmount">$0.00</strong></div>
+            <div><i class="legend-dot open-dot"></i><span>Outstanding</span><strong id="chartOutstandingAmount">$0.00</strong></div>
+          </div>
+          <p class="overdue-detail" id="overdueDetail">Overdue: $0.00 · 0 invoices. Included in outstanding.</p>
+        </div>
       </section>
       <section class="content-grid">
         <article class="panel invoice-panel" id="invoices">
