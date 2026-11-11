@@ -810,7 +810,7 @@ app.post("/api/recovery/draft", async (req, res) => {
       invoice.paymentToken = crypto.randomBytes(32).toString("hex");
       await persistInvoice(invoice);
     }
-    const paymentUrl = "/pay/" + encodeURIComponent(invoice.paymentToken);
+    const paymentUrl = "https://smartpay-ai-upps.onrender.com/pay/" + encodeURIComponent(invoice.paymentToken);
     const draftWithPaymentLink = draft + "\n\nView invoice and pay securely: " + paymentUrl;
     return res.json({ invoiceId: invoice.id, customer: invoice.customer, email: invoice.email, amount: invoice.amount, currency: invoice.currency, dueDate: invoice.dueDate, priority, daysOverdue, draft: draftWithPaymentLink, provider, paymentUrl, sent: false });
   } catch (error) {
