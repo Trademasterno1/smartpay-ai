@@ -146,7 +146,12 @@ function renderCashFlowForecast() {
     date.setDate(date.getDate() + days);
     return date;
   };
-  const dateKey = date => date.toISOString().slice(0, 10);
+  const dateKey = date => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return year + "-" + month + "-" + day;
+  };
   const openInvoices = invoices.filter(invoice => invoice.status !== "PAID");
   const currencies = [...new Set(openInvoices.map(invoice => invoice.currency || "USD"))];
   const container = $("#cashFlowForecast");
@@ -156,8 +161,8 @@ function renderCashFlowForecast() {
   const groups = currencies.map(currency => {
     const items = openInvoices.filter(invoice => (invoice.currency || "USD") === currency);
     const overdue = items.filter(invoice => invoice.status === "OVERDUE" || invoice.dueDate < dateKey(today));
-    const next7 = items.filter(invoice => invoice.dueDate >= dateKey(today) && invoice.dueDate <= dateKey(dateOffset(7)));
-    const days8to30 = items.filter(invoice => invoice.dueDate > dateKey(dateOffset(7)) && invoice.dueDate <= dateKey(dateOffset(30)));
+    const next7 = items.filter(invoice => invoice.status !== "OVERDUE" && invoice.dueDate >= dateKey(today) && invoice.dueDate <= dateKey(dateOffset(7)));
+    const days8to30 = items.filter(invoice => invoice.status !== "OVERDUE" && invoice.dueDate > dateKey(dateOffset(7)) && invoice.dueDate <= dateKey(dateOffset(30)));
     const beyond30 = items.filter(invoice => invoice.dueDate > dateKey(dateOffset(30)));
     return { currency, items, overdue, next7, days8to30, beyond30 };
   });
