@@ -529,9 +529,6 @@ async function refreshMonthlyAnalytics() {
       container.innerHTML = '<p class="chart-empty">No monthly data is available yet.</p>';
       return;
     }
-
-    // Render each ISO currency independently so unlike currencies are never added
-    // together or compared on a shared vertical scale.
     const currencyGroups = new Map();
     data.forEach(item => {
       const currency = String(item.currency || "USD").toUpperCase();
@@ -543,33 +540,55 @@ async function refreshMonthlyAnalytics() {
       catch (_error) { return Number(amount || 0).toFixed(2) + " " + currency; }
     };
     container.style.gridTemplateColumns = "minmax(0, 1fr)";
-    container.innerHTML = Array.from(currencyGroups.entries()).map(([currency, items]) => {
+    container.innerHTML = Array.from(currencyGroups.entries()).map(([currency, rawItems], groupIndex) => {
+      const items = rawItems.slice().sort((a,b) => String(a.month || a.label).localeCompare(String(b.month || b.label)));
       const maxValue = Math.max(1, ...items.flatMap(item => [
-        Number(item.invoicedAmount || 0), Number(item.collectedAmount || 0),
-        Number(item.demoCollectedAmount || 0)
+        Number(item.invoicedAmount || 0), Number(item.collectedAmount || 0), Number(item.demoCollectedAmount || 0)
       ]));
-      const monthsMarkup = items.map(item => {
-        const invoiced = Number(item.invoicedAmount || 0);
-        const collected = Number(item.collectedAmount || 0);
-        const demoCollected = Number(item.demoCollectedAmount || 0);
-        const invoiceHeight = invoiced > 0 ? Math.max(3, (invoiced / maxValue) * 100) : 0;
-        const collectedHeight = collected > 0 ? Math.max(3, (collected / maxValue) * 100) : 0;
-        const demoCollectedHeight = demoCollected > 0 ? Math.max(3, (demoCollected / maxValue) * 100) : 0;
-        return `<div class="month-column">
-          <div class="month-bars">
-            <div class="month-bar-slot"><span class="month-bar invoice-bar" style="height:${invoiceHeight}%" title="Invoices: ${escapeHTML(formatChartMoney(invoiced, currency))}"></span></div>
-            <div class="month-bar-slot"><span class="month-bar collected-bar" style="height:${collectedHeight}%" title="Confirmed PayPal captures: ${escapeHTML(formatChartMoney(collected, currency))}"></span></div>
-            <div class="month-bar-slot"><span class="month-bar demo-collected-bar" style="height:${demoCollectedHeight}%" title="Simulated demo collections: ${escapeHTML(formatChartMoney(demoCollected, currency))}"></span></div>
-          </div>
-          <span class="month-label">${escapeHTML(item.label)}</span>
-          <span class="month-values">${escapeHTML(formatChartMoney(invoiced, currency))} / ${escapeHTML(formatChartMoney(collected, currency))} / ${escapeHTML(formatChartMoney(demoCollected, currency))}</span>
-        </div>`;
+      const ticks = [1, .75, .5, .25, 0];
+      const axis = ticks.map(ratio => '<span>' + escapeHTML(formatChartMoney(maxValue * ratio, currency)) + '</span>').join("");
+      const columns = items.map((item,index) => {
+        const values = [
+          { key:"invoicedAmount", label:"Invoiced", css:"invoice-bar", value:Number(item.invoicedAmount || 0) },
+          { key:"collectedAmount", label:"PayPal captured", css:"collected-bar", value:Number(item.collectedAmount || 0) },
+          { key:"demoCollectedAmount", label:"Demo collections", css:"demo-collected-bar", value:Number(item.demoCollectedAmount || 0) }
+        ];
+        const bars = values.map(series => '<span class="month-bar ' + series.css + '" style="height:' + (series.value > 0 ? Math.max(1.5, series.value / maxValue * 100) : 0) + '%" aria-hidden="true"></span>').join("");
+        const monthName = item.label || item.month || "Month";
+        return '<button type="button" class="month-column' + (index === items.length-1 ? ' is-selected' : '') + '" data-month-index="' + index + '" aria-pressed="' + (index === items.length-1 ? 'true':'false') + '">' +
+          '<span class="month-bars" aria-label="' + escapeHTML(monthName) + '">' + bars + '</span>' +
+          '<span class="month-label">' + escapeHTML(monthName) + '</span></button>';
       }).join("");
-      return `<section class="monthly-currency-group" aria-label="Monthly performance in ${escapeHTML(currency)}">
-        <div class="monthly-currency-heading">${escapeHTML(currency)}</div>
-        <div class="monthly-chart-months" data-months="${months}">${monthsMarkup}</div>
-      </section>`;
+      const selected = items[items.length-1];
+      const detail = '<div class="month-detail" id="monthDetail' + groupIndex + '">' +
+        '<strong>' + escapeHTML(selected.label || selected.month || "Month") + ' · ' + escapeHTML(currency) + '</strong>' +
+        '<div><span><i class="legend-dot invoice-dot"></i> Invoiced</span><b>' + escapeHTML(formatChartMoney(selected.invoicedAmount, currency)) + '</b></div>' +
+        '<div><span><i class="legend-dot paid-dot"></i> PayPal captured</span><b>' + escapeHTML(formatChartMoney(selected.collectedAmount, currency)) + '</b></div>' +
+        '<div><span><i class="legend-dot demo-paid-dot"></i> Demo collections</span><b>' + escapeHTML(formatChartMoney(selected.demoCollectedAmount, currency)) + '</b></div></div>';
+      return '<section class="monthly-currency-group" data-currency-group="' + groupIndex + '" aria-label="Monthly performance in ' + escapeHTML(currency) + '">' +
+        '<div class="monthly-currency-heading">' + escapeHTML(currency) + '</div>' +
+        '<div class="chart-with-axis"><div class="chart-y-axis">' + axis + '</div><div class="monthly-chart-months" data-months="' + months + '">' + columns + '</div></div>' + detail + '</section>';
     }).join("");
+    container.querySelectorAll(".monthly-currency-group").forEach(group => {
+      const groupIndex = Number(group.dataset.currencyGroup);
+      const currency = group.querySelector(".monthly-currency-heading").textContent;
+      const items = currencyGroups.get(currency) || [];
+      const buttons = [...group.querySelectorAll("[data-month-index]")];
+      const detail = group.querySelector(".month-detail");
+      buttons.forEach(button => button.addEventListener("click", () => {
+        const item = items[Number(button.dataset.monthIndex)];
+        buttons.forEach(other => {
+          const active = other === button;
+          other.classList.toggle("is-selected", active);
+          other.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        const format = value => formatChartMoney(value, currency);
+        detail.innerHTML = '<strong>' + escapeHTML(item.label || item.month || "Month") + ' · ' + escapeHTML(currency) + '</strong>' +
+          '<div><span><i class="legend-dot invoice-dot"></i> Invoiced</span><b>' + escapeHTML(format(item.invoicedAmount)) + '</b></div>' +
+          '<div><span><i class="legend-dot paid-dot"></i> PayPal captured</span><b>' + escapeHTML(format(item.collectedAmount)) + '</b></div>' +
+          '<div><span><i class="legend-dot demo-paid-dot"></i> Demo collections</span><b>' + escapeHTML(format(item.demoCollectedAmount)) + '</b></div>';
+      }));
+    });
   } catch (error) {
     console.error("Monthly analytics loading failed:", error);
     container.innerHTML = '<p class="chart-empty">Monthly chart could not load. Refresh the page to retry.</p>';
@@ -583,64 +602,67 @@ function getInvoiceDisplayStatus(invoice) {
   return invoice.dueDate && invoice.dueDate < today ? "OVERDUE" : (invoice.status || "UNPAID");
 }
 
-function renderInvoices() {
-  const query = ($("#invoiceSearch")?.value || "").trim().toLowerCase();
+let invoicePage = 1;
+let invoicePageRows = [];
+const invoicePageSize = 20;
+
+async function renderInvoices() {
+  const rows = $("#invoiceRows");
+  if (!rows) return;
+  const query = ($("#invoiceSearch")?.value || "").trim();
   const status = $("#invoiceStatusFilter")?.value || "ALL";
-  const visibleInvoices = invoices.filter(invoice => {
-    const matchesQuery = [invoice.id, invoice.customer, invoice.email].some(value => String(value || "").toLowerCase().includes(query));
-    return matchesQuery && (status === "ALL" || getInvoiceDisplayStatus(invoice) === status);
-  });
-  $("#invoiceRows").innerHTML = visibleInvoices.map(invoice => `
-    <tr class="${getInvoiceDisplayStatus(invoice) === "PAID" ? "invoice-row--paid" : getInvoiceDisplayStatus(invoice) === "OVERDUE" ? "invoice-row--overdue" : "invoice-row--upcoming"}">
-      <td><strong>${escapeHTML(invoice.id)}</strong><small>${escapeHTML(invoice.customer)}</small></td>
-      <td>${escapeHTML(invoice.dueDate)}</td>
-      <td class="amount">${money(invoice.amount, invoice.currency)}${Number(invoice.taxRate || 0) > 0 ? `<small>Includes ${escapeHTML(invoice.taxRate)}% tax</small>` : ""}</td>
-      <td><span class="status ${escapeHTML(getInvoiceDisplayStatus(invoice))}">${escapeHTML(getInvoiceDisplayStatus(invoice))}</span></td>
-      <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button><button class="delete-button" data-delete-invoice="${escapeHTML(invoice.id)}">Delete</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-collect-invoice="${escapeHTML(invoice.id)}">Collect Payment</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
-    </tr>`).join("");
-  if (!visibleInvoices.length) $("#invoiceRows").innerHTML = '<tr><td colspan="5">No matching invoices.</td></tr>';
-  $("#invoiceRows").querySelectorAll("[data-collect-invoice]").forEach(button => {
-    button.addEventListener("click", () => openCollectionSession(button.dataset.collectInvoice));
-  });
-  $("#invoiceRows").querySelectorAll("[data-edit-invoice]").forEach(button => {
-    button.addEventListener("click", () => startEditInvoice(button.dataset.editInvoice));
-  });
-  $("#invoiceRows").querySelectorAll("[data-delete-invoice]").forEach(button => {
-    button.addEventListener("click", async () => {
+  const from = $("#invoiceDateFrom")?.value || "";
+  const to = $("#invoiceDateTo")?.value || "";
+  rows.innerHTML = '<tr><td colspan="5">Loading invoices…</td></tr>';
+  try {
+    const params = new URLSearchParams({ page:String(invoicePage), pageSize:String(invoicePageSize), q:query, status, from, to });
+    const response = await fetch("/api/invoices/page?" + params.toString(), { cache:"no-store", headers:{ "Accept":"application/json" } });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Could not load invoices.");
+    invoicePageRows = Array.isArray(data.items) ? data.items : [];
+    const total = Number(data.total || 0);
+    const totalPages = Math.max(1, Number(data.totalPages || 1));
+    if (invoicePage > totalPages) { invoicePage = totalPages; return renderInvoices(); }
+    rows.innerHTML = invoicePageRows.map(invoice => {
+      const displayStatus = getInvoiceDisplayStatus(invoice);
+      return '<tr class="' + (displayStatus === "PAID" ? "invoice-row--paid" : displayStatus === "OVERDUE" ? "invoice-row--overdue" : "invoice-row--upcoming") + '">' +
+        '<td><strong>' + escapeHTML(invoice.id) + '</strong><small>' + escapeHTML(invoice.customer) + '</small></td>' +
+        '<td>' + escapeHTML(invoice.dueDate) + '</td>' +
+        '<td class="amount">' + money(invoice.amount, invoice.currency) + (Number(invoice.taxRate || 0) > 0 ? '<small>Includes ' + escapeHTML(invoice.taxRate) + '% tax</small>' : '') + '</td>' +
+        '<td><span class="status ' + escapeHTML(displayStatus) + '">' + escapeHTML(displayStatus) + '</span></td>' +
+        '<td class="invoice-actions-cell">' + (invoice.status !== "PAID" && !invoice.paypalOrderId ? '<button class="edit-button" data-edit-invoice="' + escapeHTML(invoice.id) + '">Edit</button><button class="delete-button" data-delete-invoice="' + escapeHTML(invoice.id) + '">Delete</button>' : '') + (invoice.status === "PAID" ? '—' : '<button class="pay-button" data-collect-invoice="' + escapeHTML(invoice.id) + '">Collect Payment</button>') + (invoice.paymentToken ? '<button class="share-button" data-copy-payment-link="' + escapeHTML(invoice.paymentToken) + '">Copy payment link</button>' : '') + '<button class="pdf-button" data-pdf-invoice="' + escapeHTML(invoice.id) + '">PDF</button></td></tr>';
+    }).join("");
+    if (!invoicePageRows.length) rows.innerHTML = '<tr><td colspan="5">No matching invoices.</td></tr>';
+    const summary = $("#invoicePaginationSummary");
+    if (summary) summary.textContent = total ? 'Showing ' + ((invoicePage-1)*invoicePageSize+1) + '–' + Math.min(invoicePage*invoicePageSize,total) + ' of ' + total + ' invoices' : 'No invoices found';
+    const pageLabel = $("#invoicePageLabel");
+    if (pageLabel) pageLabel.textContent = 'Page ' + invoicePage + ' of ' + totalPages;
+    if ($("#invoicePrevPage")) $("#invoicePrevPage").disabled = invoicePage <= 1;
+    if ($("#invoiceNextPage")) $("#invoiceNextPage").disabled = invoicePage >= totalPages;
+    rows.querySelectorAll("[data-collect-invoice]").forEach(button => button.addEventListener("click", () => openCollectionSession(button.dataset.collectInvoice)));
+    rows.querySelectorAll("[data-edit-invoice]").forEach(button => button.addEventListener("click", () => startEditInvoice(button.dataset.editInvoice)));
+    rows.querySelectorAll("[data-delete-invoice]").forEach(button => button.addEventListener("click", async () => {
       const invoiceId = button.dataset.deleteInvoice;
       const invoice = invoices.find(item => item.id === invoiceId);
       if (!invoice || !window.confirm("Delete unpaid invoice " + invoiceId + " for " + invoice.customer + "? This cannot be undone.")) return;
-      button.disabled = true;
-      button.textContent = "Deleting…";
+      button.disabled = true; button.textContent = "Deleting…";
       try {
-        const response = await fetch("/api/invoices/" + encodeURIComponent(invoiceId), { method: "DELETE", headers: { "Accept": "application/json" } });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Could not delete invoice.");
+        const result = await fetch("/api/invoices/" + encodeURIComponent(invoiceId), { method:"DELETE", headers:{ "Accept":"application/json" } });
+        const body = await result.json();
+        if (!result.ok) throw new Error(body.error || "Could not delete invoice.");
         await refreshDashboard();
-      } catch (error) {
-        window.alert(error.message || "Could not delete invoice.");
-        renderInvoices();
-      }
-    });
-  });
-  $("#invoiceRows").querySelectorAll("[data-pdf-invoice]").forEach(button => {
-    button.addEventListener("click", () => openInvoicePDF(button.dataset.pdfInvoice));
-  });
-  $("#invoiceRows").querySelectorAll("[data-copy-payment-link]").forEach(button => {
-    button.addEventListener("click", async () => {
+      } catch (error) { window.alert(error.message || "Could not delete invoice."); renderInvoices(); }
+    }));
+    rows.querySelectorAll("[data-pdf-invoice]").forEach(button => button.addEventListener("click", () => openInvoicePDF(button.dataset.pdfInvoice)));
+    rows.querySelectorAll("[data-copy-payment-link]").forEach(button => button.addEventListener("click", async () => {
       const url = window.location.origin + "/pay/" + encodeURIComponent(button.dataset.copyPaymentLink);
-      try {
-        await navigator.clipboard.writeText(url);
-        const original = button.textContent;
-        button.textContent = "Link copied";
-        setTimeout(() => { button.textContent = original; }, 1800);
-      } catch (_) {
-        window.prompt("Copy this secure customer payment link:", url);
-      }
-    });
-  });
+      try { await navigator.clipboard.writeText(url); button.textContent = "Link copied"; }
+      catch (_) { window.prompt("Copy this secure customer payment link:", url); }
+    }));
+  } catch (error) {
+    rows.innerHTML = '<tr><td colspan="5">Could not load invoices. ' + escapeHTML(error.message) + '</td></tr>';
+  }
 }
-
 
 function startEditInvoice(invoiceId) {
   const invoice = invoices.find(item => item.id === invoiceId);
@@ -1751,8 +1773,12 @@ document.querySelectorAll(".suggestion").forEach(button => {
 });
 
 
-$("#invoiceSearch").addEventListener("input", renderInvoices);
-$("#invoiceStatusFilter").addEventListener("change", renderInvoices);
+$("#invoiceSearch").addEventListener("input", () => { invoicePage = 1; renderInvoices(); });
+$("#invoiceStatusFilter").addEventListener("change", () => { invoicePage = 1; renderInvoices(); });
+$("#invoiceDateFrom").addEventListener("change", () => { invoicePage = 1; renderInvoices(); });
+$("#invoiceDateTo").addEventListener("change", () => { invoicePage = 1; renderInvoices(); });
+$("#invoicePrevPage").addEventListener("click", () => { if (invoicePage > 1) { invoicePage--; renderInvoices(); } });
+$("#invoiceNextPage").addEventListener("click", () => { invoicePage++; renderInvoices(); });
 $("#monthlyRange").addEventListener("change", refreshMonthlyAnalytics);
 
 $("#showCreateInvoiceButton").addEventListener("click", () => {
