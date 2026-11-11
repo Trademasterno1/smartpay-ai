@@ -588,10 +588,10 @@ function renderInvoices() {
     return matchesQuery && (status === "ALL" || getInvoiceDisplayStatus(invoice) === status);
   });
   $("#invoiceRows").innerHTML = visibleInvoices.map(invoice => `
-    <tr>
+    <tr class="${getInvoiceDisplayStatus(invoice) === "PAID" ? "invoice-row--paid" : getInvoiceDisplayStatus(invoice) === "OVERDUE" ? "invoice-row--overdue" : "invoice-row--upcoming"}">
       <td><strong>${escapeHTML(invoice.id)}</strong><small>${escapeHTML(invoice.customer)}</small></td>
       <td>${escapeHTML(invoice.dueDate)}</td>
-      <td class="amount">${money(invoice.amount, invoice.currency)}</td>
+      <td class="amount">${money(invoice.amount, invoice.currency)}${Number(invoice.taxRate || 0) > 0 ? `<small>Includes ${escapeHTML(invoice.taxRate)}% tax</small>` : ""}</td>
       <td><span class="status ${escapeHTML(getInvoiceDisplayStatus(invoice))}">${escapeHTML(getInvoiceDisplayStatus(invoice))}</span></td>
       <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button><button class="delete-button" data-delete-invoice="${escapeHTML(invoice.id)}">Delete</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-collect-invoice="${escapeHTML(invoice.id)}">Collect Payment</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
     </tr>`).join("");
@@ -677,8 +677,11 @@ function downloadCSV(filename, headers, rows) {
 
 function exportInvoicesCSV() {
   downloadCSV('smartpay-invoices.csv',
-    ['Invoice ID','Customer','Email','Amount','Currency','Status','Due Date'],
-    invoices.map(x => [x.id,x.customer,x.email,x.amount,x.currency,getInvoiceDisplayStatus(x),x.dueDate]));
+    ['Invoice ID','Customer','Email','Subtotal','Tax %','Total','Currency','Status','Due Date'],
+    invoices.map(x => {
+      const subtotal = (Array.isArray(x.lineItems) ? x.lineItems : []).reduce((sum, item) => sum + Number(item.quantity) * Number(item.unitPrice), 0);
+      return [x.id,x.customer,x.email,subtotal.toFixed(2),Number(x.taxRate || 0),x.amount,x.currency,getInvoiceDisplayStatus(x),x.dueDate];
+    }));
 }
 
 function exportPaymentsCSV() {
