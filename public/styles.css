@@ -466,3 +466,70 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 .assistant-invoice-action{padding:10px;border-left:3px solid #1769e0;border-radius:7px;background:#f2f7ff}
 .assistant-invoice-card a{overflow-wrap:anywhere;word-break:break-all}
 @media(max-width:520px){.assistant-invoice-card{padding:11px;gap:9px}.assistant-invoice-fact{padding:7px}.assistant-invoice-evidence,.assistant-invoice-action{font-size:10px}}
+
+
+/* Desktop readability pass: restore comfortable text sizes on wide screens */
+@media (min-width: 781px) {
+  body { font-size: 15px; }
+  .workspace-label,.eyebrow { font-size: 11px; letter-spacing: .9px; }
+  .nav-item { font-size: 14px; }
+  .sidebar-bottom { font-size: 13px; }
+  .sandbox-pill { font-size: 12px; }
+  .subhead { font-size: 15px; }
+  .workspace-role { font-size: 11px; }
+  .logout-button { font-size: 12px; }
+  .stat-top { font-size: 13px; }
+  .stat-value { font-size: 30px; }
+  .stat-note { font-size: 12px; }
+  .panel h2,.assistant-panel h2 { font-size: 20px; }
+  .tiny-tag { font-size: 11px; }
+  .collection-summary span,.collection-summary p { font-size: 13px; }
+  .financial-legend>div,.financial-legend strong { font-size: 13px; }
+  .monthly-chart-note,.monthly-chart-legend,.monthly-chart-footnote { font-size: 12px; }
+  .month-label { font-size: 12px; }
+  .month-values { font-size: 11px; }
+  th { font-size: 11px; padding: 13px 11px; }
+  td { font-size: 13px; padding: 15px 11px; }
+  td strong { font-size: 13px; }
+  td small { font-size: 11px; }
+  .status { font-size: 10px; }
+  .pay-button,.edit-button,.secondary-button,.delete-button,.share-button,.pdf-button,.export-button { font-size: 11px; }
+  .merchant-profile-help,.recovery-intro,.monthly-chart-footnote { font-size: 12px; }
+  .merchant-profile-grid label,.create-invoice-fields label { font-size: 12px; }
+  .merchant-profile-grid input,.merchant-profile-grid textarea,.create-invoice-fields input { font-size: 13px; padding: 11px 10px; }
+  .merchant-profile-actions button,.create-invoice-actions button { font-size: 12px; }
+  .merchant-profile-actions span,.create-invoice-actions span { font-size: 11px; }
+  .invoice-tools input,.invoice-tools select { font-size: 13px; padding: 11px 12px; }
+  .invoice-item-row input { font-size: 13px; padding: 11px 10px; }
+  .invoice-item-row strong { font-size: 13px; }
+  .recovery-insight span { font-size: 11px; }
+  .recovery-insight strong { font-size: 16px; }
+  .recovery-recommendation { font-size: 12px; }
+  .recovery-details strong { font-size: 13px; }
+  .recovery-details span { font-size: 11px; }
+  .priority { font-size: 10px; }
+  .draft-button,.recovery-send-email,.recovery-copy-email { font-size: 11px; }
+  .recovery-draft { font-size: 12px; }
+  .recovery-email-meta,.recovery-email-editor label,.recovery-email-helper { font-size: 11px; }
+  .recovery-email-subject,.recovery-email-message { font-size: 13px; }
+  .recovery-payment-link { font-size: 12px; }
+  .assistant-intro { font-size: 14px; line-height: 1.7; }
+  .suggestion { font-size: 11px; padding: 9px 11px; }
+  #askForm label { font-size: 11px; }
+  .ask-row input { font-size: 14px; padding: 11px 12px; }
+  .ask-row button { width: 40px; height: 40px; flex-basis: 40px; }
+  .ai-response { font-size: 13px; line-height: 1.75; }
+  .ai-response-rich { font-size: 14px; line-height: 1.75; }
+  .ai-response-rich .ai-answer-heading { font-size: 16px; }
+  .ai-response-rich ul,.ai-response-rich ol { gap: 8px; }
+  .ai-answer-provider { font-size: 11px; }
+  .ai-action-disclaimer { font-size: 12px; }
+  .assistant-invoice-head h3 { font-size: 15px; }
+  .assistant-invoice-customer { font-size: 13px; }
+  .assistant-risk-pill { font-size: 10px; }
+  .assistant-invoice-fact span { font-size: 10px; }
+  .assistant-invoice-fact strong { font-size: 13px; }
+  .assistant-invoice-evidence,.assistant-invoice-action { font-size: 13px; line-height: 1.7; }
+  .assistant-invoice-evidence>strong,.assistant-invoice-action>strong { font-size: 11px; }
+  footer { font-size: 10px; }
+}
