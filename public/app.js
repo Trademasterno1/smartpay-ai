@@ -257,8 +257,50 @@ function renderCashFlowForecast() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "AI risk review is unavailable.");
-      aiResult.textContent = (data.answer || "The AI provider returned no assessment.") +
-        (data.provider ? "\n\nAI provider: " + data.provider : "");
+      const outstanding = invoices.filter(invoice => invoice.status !== "PAID");
+      const answer = String(data.answer || "").trim();
+      const completeAIReview = outstanding.length > 0 &&
+        outstanding.every(invoice => answer.includes(String(invoice.id))) &&
+        answer.length > 250;
+      if (completeAIReview) {
+        aiResult.textContent = answer + (data.provider ? "\n\nAI provider: " + data.provider : "");
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayKey = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
+        const ranked = outstanding.map(invoice => {
+          const due = String(invoice.dueDate || "");
+          const validDue = /^\\d{4}-\\d{2}-\\d{2}$/.test(due);
+          const dueTime = validDue ? Date.parse(due + "T00:00:00") : NaN;
+          const days = validDue ? Math.round((today.getTime() - dueTime) / 86400000) : null;
+          const overdue = invoice.status === "OVERDUE" || (days !== null && days > 0);
+          const dueSoon = days !== null && days >= 0 && days <= 7;
+          const risk = overdue ? "HIGH" : dueSoon ? "MEDIUM" : "LOW";
+          const evidence = overdue
+            ? (days > 0 ? days + " day(s) past due; status " + invoice.status + "." : "Invoice is marked OVERDUE.")
+            : dueSoon ? (days === 0 ? "Due today." : "Due in " + days + " day(s).") :
+              validDue ? "Not overdue; due date is " + due + "." : "Due date is missing or invalid; verify invoice details.";
+          const action = overdue
+            ? "Contact the customer promptly, confirm the payment date, and share the secure invoice link if available."
+            : dueSoon ? "Send a friendly due-date reminder and confirm the expected payment date."
+            : "Monitor until the reminder window; verify the due date if missing.";
+          return { invoice, risk, evidence, action, days, amount: Number(invoice.amount || 0) };
+        }).sort((a, b) => ({ HIGH: 0, MEDIUM: 1, LOW: 2 }[a.risk] - ({ HIGH: 0, MEDIUM: 1, LOW: 2 }[b.risk]) || b.amount - a.amount);
+        const sections = ranked.map((item, index) => {
+          const invoice = item.invoice;
+          const currency = invoice.currency || "USD";
+          const amount = money(item.amount, currency);
+          return (index + 1) + ". " + invoice.id + " — " + (invoice.customer || "Customer not recorded") +
+            " — " + amount + "\nRisk: " + item.risk + "\nStatus: " + invoice.status +
+            " · Due: " + (invoice.dueDate || "Not recorded") + "\nEvidence: " + item.evidence +
+            "\nNext action: " + item.action;
+        });
+        aiResult.textContent = "AI provider returned an incomplete review, so SmartPay displayed its transparent rule-based fallback instead.\n\n" +
+          "COLLECTION-RISK REVIEW · OUTSTANDING INVOICES ONLY\n\n" +
+          (sections.length ? sections.join("\n\n") : "No outstanding invoices were found.") +
+          "\n\nPriority: review HIGH-risk overdue invoices first, then MEDIUM-risk invoices due soon. " +
+          "This is a rules-based operational assessment, not a trained prediction. No reminders were sent.";
+      }
       aiButton.textContent = "Run analysis again";
     } catch (error) {
       aiResult.textContent = error.message || "Could not complete the AI risk review.";
