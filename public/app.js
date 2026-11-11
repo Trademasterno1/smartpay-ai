@@ -30,7 +30,7 @@ function openInvoicePDF(invoiceId) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHTML(invoice.id)} — SmartPay AI</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:32px;background:#f4f6fa;color:#17243a;font:14px Arial,sans-serif}.sheet{max-width:760px;margin:0 auto;background:#fff;padding:52px;border:1px solid #e7ebf1}.top{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:2px solid #172c4b;padding-bottom:24px}.brand{font-size:25px;font-weight:800;letter-spacing:-1px}.brand span{color:#1769e0}.muted{color:#7e8b9d}.eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:700;color:#8391a4}.invoice-title{text-align:right}.invoice-title h1{margin:8px 0;font-size:30px}.status{display:inline-block;padding:7px 10px;border-radius:5px;background:#edf4ff;color:#1769e0;font-size:11px;font-weight:700}.status.PAID{background:#e8f7ef;color:#13865b}.status.OVERDUE{background:#fff0f0;color:#b44d55}.details{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin:34px 0}.details h3{font-size:10px;letter-spacing:1px;color:#8995a5;margin:0 0 10px}.details strong{display:block;font-size:16px;margin-bottom:6px}.details p{margin:4px 0;color:#627187}.line{width:100%;border-collapse:collapse;margin-top:28px}.line th{text-align:left;color:#8290a3;font-size:10px;letter-spacing:.8px;padding:13px 10px;border-bottom:1px solid #e8edf3}.line td{padding:18px 10px;border-bottom:1px solid #e8edf3}.line th:last-child,.line td:last-child{text-align:right}.total{display:flex;justify-content:flex-end;margin-top:18px}.total div{width:260px;display:flex;justify-content:space-between;padding:14px 10px;font-size:17px;font-weight:800;border-bottom:2px solid #172c4b}.note{margin-top:34px;padding:15px;background:#f7f9fc;color:#64748a;font-size:11px;line-height:1.7}.footer{margin-top:34px;padding-top:16px;border-top:1px solid #e8edf3;color:#9aa5b4;font-size:10px;line-height:1.7}.actions{text-align:center;margin:22px auto}.actions button{border:0;border-radius:7px;background:#1769e0;color:#fff;padding:12px 20px;font-weight:700;font-size:13px;cursor:pointer}@media print{body{padding:0;background:#fff}.sheet{max-width:none;border:0;padding:28px}.actions{display:none}}@media(max-width:600px){body{padding:10px}.sheet{padding:24px}.top{flex-direction:column}.invoice-title{text-align:left}.details{gap:16px}}
+*{box-sizing:border-box}body{margin:0;padding:32px;background:#f4f6fa;color:#17243a;font:14px Arial,sans-serif}.sheet{max-width:760px;margin:0 auto;background:#fff;padding:52px;border:1px solid #e7ebf1}.top{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:2px solid #172c4b;padding-bottom:24px}.brand{font-size:25px;font-weight:800;letter-spacing:-1px}.brand span{color:#1769e0}.muted{color:#7e8b9d}.eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:700;color:#8391a4}.invoice-title{text-align:right}.invoice-title h1{margin:8px 0;font-size:30px}.status{display:inline-block;padding:7px 10px;border-radius:5px;background:#edf4ff;color:#1769e0;font-size:11px;font-weight:700}.status.PAID{background:#e8f7ef;color:#13865b}.status.OVERDUE{background:#fff0f0;color:#b44d55}.details{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin:34px 0}.details h3{font-size:10px;letter-spacing:1px;color:#8995a5;margin:0 0 10px}.details strong{display:block;font-size:16px;margin-bottom:6px}.details p{margin:4px 0;color:#627187}.line{width:100%;border-collapse:collapse;margin-top:28px}.line th{text-align:left;color:#8290a3;font-size:10px;letter-spacing:.8px;padding:13px 10px;border-bottom:1px solid #e8edf3}.line td{padding:18px 10px;border-bottom:1px solid #e8edf3}.line th:last-child,.line td:last-child{text-align:right}.total{display:flex;justify-content:flex-end;margin-top:18px}.total div{width:260px;display:flex;justify-content:space-between;padding:14px 10px;font-size:17px;font-weight:800;border-bottom:2px solid #172c4b}.note{margin-top:34px;padding:15px;background:#f7f9fc;color:#64748a;font-size:11px;line-height:1.7}.footer{margin-top:34px;padding-top:16px;border-top:1px solid #e8edf3;color:#9aa5b4;font-size:10px;line-height:1.7}.actions{text-align:center;margin:22px auto}.actions button{border:0;border-radius:7px;background:#1769e0;color:#fff;padding:12px 20px;font-weight:700;font-size:13px;cursor:pointer}.print-help{max-width:520px;margin:12px auto;color:#64748a;font-size:12px;line-height:1.6}@media print{body{padding:0;background:#fff}.sheet{max-width:none;border:0;padding:28px}.actions{display:none}}@media(max-width:600px){body{padding:10px}.sheet{padding:24px}.top{flex-direction:column}.invoice-title{text-align:left}.details{gap:16px}}
 </style>
 </head>
 <body>
@@ -42,12 +42,23 @@ function openInvoicePDF(invoiceId) {
 <div class="note"><strong>DEMO DOCUMENT — NOT A TAX INVOICE</strong><br>This document was generated from the SmartPay AI demonstration workspace. Payments are restricted to PayPal Sandbox; no real funds are collected through this document.</div>
 <div class="footer">SmartPay AI · Generated on ${escapeHTML(generatedOn)}<br>Invoice status reflects the latest status available in the workspace at the time this document was generated.</div>
 </main>
-<div class="actions"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
+<div class="actions"><button id="printInvoiceButton" type="button">Print / Save as PDF</button><p class="print-help">On iPhone or iPad, if the print window does not open, use the browser Share button, choose Print, then pinch out on the preview to save/share the PDF.</p></div>
 </body>
 </html>`;
   printWindow.document.open();
   printWindow.document.write(html);
   printWindow.document.close();
+  const printButton = printWindow.document.getElementById("printInvoiceButton");
+  if (printButton) {
+    printButton.addEventListener("click", () => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } catch (error) {
+        printButton.textContent = "Use Share → Print to save PDF";
+      }
+    });
+  }
 }
 
 function renderFinancialDashboard() {
