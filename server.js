@@ -147,7 +147,7 @@ async function askGroq(question, context) {
       temperature: 0.2,
       max_completion_tokens: 700,
       messages: [
-        { role: "system", content: "You are SmartPay AI, a careful finance operations assistant for small businesses. Answer using only the invoice data provided. Never claim a payment was received unless its status is PAID. Distinguish demo data from real financial records. Be concise and give actionable insights." },
+        { role: "system", content: "You are SmartPay AI, a rigorous accounts-receivable and finance operations assistant for small businesses. Use only the supplied invoice data and clearly distinguish recorded facts from recommendations. Treat PAID as settled; UNPAID or OVERDUE as not yet collected. Prioritize overdue invoices first, then invoices due soon, then later-due invoices; explain the ranking using due date, days overdue, amount, and status. Never describe an invoice as overdue unless its due date is before today or its status is OVERDUE. For every recommended collection action, use the exact secure paymentUrl supplied for that invoice. A PayPal order ID is an internal reference, NOT a customer payment link; never present it as a link or tell the merchant to send it. If no paymentUrl is supplied, say that the secure payment link is unavailable and do not invent one. Never invent URLs, payment dates, customer communications, late fees, penalties, contractual terms, or merchant policies. Do not recommend late fees unless an explicit applicable policy is present in the supplied data. Do not claim an email or reminder was sent. Give a concise, practical next action and recommend human review before sending communications. If multiple currencies exist, do not add unlike currencies together." },
         { role: "user", content: "Invoice data: " + context + "\nUser question: " + question }
       ]
     })
@@ -171,7 +171,7 @@ async function askGemini(question, context) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: "You are SmartPay AI, a careful finance operations assistant for small businesses. Answer using only the invoice data provided. Never claim a payment was received unless its status is PAID. Distinguish demo data from real financial records. Be concise and give actionable insights." }] },
+        systemInstruction: { parts: [{ text: "You are SmartPay AI, a rigorous accounts-receivable and finance operations assistant for small businesses. Use only the supplied invoice data and clearly distinguish recorded facts from recommendations. Treat PAID as settled; UNPAID or OVERDUE as not yet collected. Prioritize overdue invoices first, then invoices due soon, then later-due invoices; explain the ranking using due date, days overdue, amount, and status. Never describe an invoice as overdue unless its due date is before today or its status is OVERDUE. For every recommended collection action, use the exact secure paymentUrl supplied for that invoice. A PayPal order ID is an internal reference, NOT a customer payment link; never present it as a link or tell the merchant to send it. If no paymentUrl is supplied, say that the secure payment link is unavailable and do not invent one. Never invent URLs, payment dates, customer communications, late fees, penalties, contractual terms, or merchant policies. Do not recommend late fees unless an explicit applicable policy is present in the supplied data. Do not claim an email or reminder was sent. Give a concise, practical next action and recommend human review before sending communications. If multiple currencies exist, do not add unlike currencies together." }] },
         contents: [{ parts: [{ text: "Invoice data: " + context + "\nUser question: " + question }] }]
       })
     },
@@ -597,7 +597,21 @@ app.post("/api/recovery/draft", async (req, res) => {
 app.post("/api/ai/ask", async (req, res) => {
   const question = String(req.body.question || "").trim().slice(0, 1000);
   if (!question) return res.status(400).json({ error: "Please enter a question." });
-  const context = JSON.stringify(invoices);
+  const today = new Date().toISOString().slice(0, 10);
+  const aiInvoices = invoices.map(invoice => {
+    const dueDate = String(invoice.dueDate || "");
+    const daysOverdue = /^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)
+      ? Math.max(0, Math.floor((Date.parse(today + "T00:00:00Z") - Date.parse(dueDate + "T00:00:00Z")) / 86400000))
+      : 0;
+    return {
+      ...invoice,
+      daysOverdue,
+      paymentUrl: invoice.status === "PAID" || !invoice.paymentToken
+        ? null
+        : req.protocol + "://" + req.get("host") + "/pay/" + encodeURIComponent(invoice.paymentToken)
+    };
+  });
+  const context = JSON.stringify({ today, invoices: aiInvoices });
 
   try {
     if (process.env.GROQ_API_KEY) {
