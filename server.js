@@ -237,9 +237,10 @@ async function initializeDatabase() {
   ];
   for (const sample of judgeSeed) {
     await pool.query(
-      `INSERT INTO judge_invoices (id, customer, email, amount, currency, status, due_date, line_items, merchant_profile, payment_token)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10)
-       ON CONFLICT (id) DO NOTHING`,
+      `INSERT INTO judge_invoices (id, customer, email, amount, currency, status, due_date, line_items, merchant_profile, payment_token, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,
+               LEAST($7::date - INTERVAL '30 days', CURRENT_DATE - INTERVAL '1 day'))
+       ON CONFLICT (id) DO UPDATE SET created_at = EXCLUDED.created_at`,
       [sample.id, sample.customer, sample.email, sample.amount, sample.currency, sample.status, sample.dueDate,
        JSON.stringify(sample.lineItems), JSON.stringify(judgeMerchantProfile), crypto.randomBytes(32).toString("hex")]
     );
