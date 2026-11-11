@@ -1612,6 +1612,46 @@ function renderAssistantAnswer(container, answer, provider) {
   }
   flushList();
   flushCode();
+
+  // Attach real actions for any live invoice IDs mentioned by the AI,
+  // even when the provider returns prose instead of the preferred invoice-card format.
+  const mentionedInvoices = invoices.filter(invoice => {
+    const id = String(invoice.id || "");
+    if (!id) return false;
+    const answerText = String(answer || "");
+    let position = answerText.toLowerCase().indexOf(id.toLowerCase());
+    while (position >= 0) {
+      const before = position > 0 ? answerText[position - 1] : "";
+      const afterIndex = position + id.length;
+      const after = afterIndex < answerText.length ? answerText[afterIndex] : "";
+      const isBoundary = char => !char || !/[A-Z0-9_-]/i.test(char);
+      if (isBoundary(before) && isBoundary(after)) return true;
+      position = answerText.toLowerCase().indexOf(id.toLowerCase(), position + 1);
+    }
+    return false;
+  });
+  const alreadyAttached = new Set(
+    [...container.querySelectorAll(".assistant-invoice-head h3")].map(node => node.textContent.trim())
+  );
+  const remainingInvoices = mentionedInvoices.filter(invoice => !alreadyAttached.has(String(invoice.id)));
+  if (remainingInvoices.length) {
+    const actionPanel = document.createElement("section");
+    actionPanel.className = "assistant-mentioned-actions";
+    const heading = document.createElement("h3");
+    heading.textContent = "Available actions";
+    actionPanel.appendChild(heading);
+    remainingInvoices.forEach(invoice => {
+      const row = document.createElement("div");
+      row.className = "assistant-mentioned-action-row";
+      const label = document.createElement("strong");
+      label.textContent = String(invoice.id) + " · " + String(invoice.customer || "Customer");
+      row.appendChild(label);
+      const controls = createInvoiceActionControls(invoice.id);
+      if (controls) row.appendChild(controls);
+      actionPanel.appendChild(row);
+    });
+    container.appendChild(actionPanel);
+  }
   if (provider) {
     const meta = document.createElement("div"); meta.className = "ai-answer-provider";
     meta.textContent = "AI provider · " + provider; container.appendChild(meta);
