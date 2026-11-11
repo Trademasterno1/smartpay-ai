@@ -1538,6 +1538,12 @@ async function initializeWorkspaceAccess() {
     const roleElement = document.getElementById("workspaceRole");
     if (roleElement) roleElement.textContent = roleLabel;
     if (session.role === "judge") {
+      const demoNotice = document.createElement("div");
+      demoNotice.className = "judge-demo-data-notice";
+      demoNotice.textContent = "DEMO DATA · Includes illustrative historical PAID invoice statuses for dashboard and AI demonstrations. These sample records are not PayPal captures; only real Sandbox payments appear in payment history.";
+      const main = document.querySelector(".main");
+      const topbar = document.querySelector(".topbar");
+      if (main && topbar) main.insertBefore(demoNotice, topbar.nextSibling);
       const merchantPanel = document.querySelector(".merchant-profile-panel");
       if (merchantPanel) merchantPanel.hidden = true;
       const eyebrow = document.querySelector(".topbar .eyebrow");
