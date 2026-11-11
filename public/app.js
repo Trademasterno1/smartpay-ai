@@ -989,7 +989,8 @@ async function startPayPalCheckout(invoiceId) {
   button.disabled = true;
   button.textContent = "Loading…";
   try {
-    if (!window.paypal || !window.paypal.Buttons) throw new Error("PayPal checkout SDK is not ready. Refresh and try again.");
+    await loadPayPalSdk();
+    if (!window.paypal || !window.paypal.Buttons) throw new Error("PayPal checkout SDK could not initialize. Please retry in a moment.");
     const response = await fetch("/api/paypal/create-order", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ invoiceId })
@@ -1023,14 +1024,46 @@ async function startPayPalCheckout(invoiceId) {
   }
 }
 
+let paypalSdkLoadPromise = null;
 async function loadPayPalSdk() {
-  const config = await fetch("/api/config").then(response => response.json());
-  if (!config.paypalClientId) return;
-  const script = document.createElement("script");
-  script.src = "https://www.paypal.com/sdk/js?client-id=" + encodeURIComponent(config.paypalClientId) + "&currency=USD&intent=capture";
-  script.onload = () => console.log("PayPal Sandbox SDK loaded.");
-  script.onerror = () => console.error("Could not load PayPal SDK.");
-  document.head.appendChild(script);
+  if (window.paypal && typeof window.paypal.Buttons === "function") return window.paypal;
+  if (paypalSdkLoadPromise) return paypalSdkLoadPromise;
+  paypalSdkLoadPromise = (async () => {
+    const response = await fetch("/api/config", { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not load PayPal configuration.");
+    const config = await response.json();
+    if (!config.paypalClientId) throw new Error("PayPal Sandbox is not configured. Please contact the administrator.");
+    await new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-smartpay-paypal-sdk="true"]');
+      if (existing) {
+        if (window.paypal && typeof window.paypal.Buttons === "function") return resolve();
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", () => reject(new Error("PayPal SDK could not be loaded. Check the connection and retry.")), { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.dataset.smartpayPaypalSdk = "true";
+      script.async = true;
+      script.src = "https://www.paypal.com/sdk/js?client-id=" + encodeURIComponent(config.paypalClientId) + "&currency=USD&intent=capture";
+      script.onload = resolve;
+      script.onerror = () => {
+        script.remove();
+        reject(new Error("PayPal SDK could not be loaded. Check the connection and retry."));
+      };
+      document.head.appendChild(script);
+    });
+    if (!window.paypal || typeof window.paypal.Buttons !== "function") {
+      throw new Error("PayPal SDK loaded but checkout is unavailable. Please retry.");
+    }
+    console.log("PayPal SDK ready.");
+    return window.paypal;
+  })();
+  try {
+    return await paypalSdkLoadPromise;
+  } catch (error) {
+    paypalSdkLoadPromise = null;
+    throw error;
+  }
 }
 
 function renderAssistantAnswer(container, answer, provider) {
