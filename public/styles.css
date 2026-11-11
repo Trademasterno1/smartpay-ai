@@ -555,3 +555,5 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 .collection-countdown{color:#17395d;font:800 16px Manrope,sans-serif;font-variant-numeric:tabular-nums}
 .collection-session-note{margin:13px 0 0;color:#8a99aa;font-size:10px;line-height:1.6}
 @media(max-width:480px){.collection-dialog{padding:23px 17px}.collection-dialog h2{font-size:21px}.collection-amount{font-size:27px}}
+
+.judge-demo-data-notice{margin:0 0 18px;padding:12px 15px;border:1px solid #d7e5f6;border-left:4px solid #3979c9;border-radius:9px;background:#f3f8ff;color:#355574;font-size:11px;line-height:1.6}
