@@ -98,16 +98,9 @@ function renderRiskReview(container, raw, provider) {
     actionLabel.textContent = "Next practical action";
     const nextAction = values["NEXT ACTION"] || "Review this invoice.";
     action.append(actionLabel, document.createTextNode(nextAction.replace(/https?:\/\/\S+/gi, "").trim()));
-    const paymentUrls = nextAction.match(/https?:\/\/[^\s]+/gi) || [];
-    paymentUrls.forEach(url => {
-      const link = document.createElement("a");
-      link.href = url.replace(/[.,)]+$/, "");
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.textContent = "Open secure payment link";
-      action.appendChild(link);
-    });
     card.append(head, facts, evidence, action);
+    const actionControls = createInvoiceActionControls(invoiceId);
+    if (actionControls) card.appendChild(actionControls);
     wrapper.appendChild(card);
     rendered += 1;
   });
@@ -1447,6 +1440,35 @@ async function loadPayPalSdk() {
   }
 }
 
+function createInvoiceActionControls(invoiceId) {
+  const invoice = invoices.find(item => String(item.id) === String(invoiceId));
+  if (!invoice) return null;
+  const controls = document.createElement("div");
+  controls.className = "assistant-invoice-controls action-center-controls";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "action-center-primary";
+  if (invoice.status === "PAID") {
+    button.textContent = "View / Save Invoice PDF";
+    button.addEventListener("click", () => openInvoicePDF(invoice.id));
+  } else if (invoice.paymentToken) {
+    button.textContent = "Collect Payment";
+    button.addEventListener("click", () => openCollectionSession(invoice.id));
+  } else {
+    button.textContent = "Prepare Reminder";
+    button.addEventListener("click", () => {
+      const recoveryCard = [...document.querySelectorAll("#recoveryList .recovery-item")].find(row =>
+        row.querySelector(".recovery-details strong")?.textContent.includes(String(invoice.id))
+      );
+      const draftButton = recoveryCard?.querySelector(".draft-button");
+      if (draftButton) draftButton.click();
+      else document.querySelector("#recovery")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+  controls.appendChild(button);
+  return controls;
+}
+
 function renderAssistantAnswer(container, answer, provider) {
   container.replaceChildren();
   container.classList.add("ai-response-rich");
@@ -1462,14 +1484,15 @@ function renderAssistantAnswer(container, answer, provider) {
     if (codeLines) {
       const pre = document.createElement("pre");
       const code = document.createElement("code");
-      code.textContent = codeLines.join("\n");
+      code.textContent = codeLines.join("\n").replace(/https?:\/\/[^\s"'<>]+/gi, "").replace(/[ \t]{2,}/g, " ").trim();
       pre.appendChild(code);
       container.appendChild(pre);
     }
     codeLines = null;
   };
   const appendInline = (parent, value) => {
-    const pattern = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|https?:\/\/[^\s<]+)/g;
+    value = String(value || "").replace(/https?:\/\/[^\s<]+/gi, "").replace(/[ \t]{2,}/g, " ").trim();
+    const pattern = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*)/g;
     let cursor = 0;
     for (const match of value.matchAll(pattern)) {
       if (match.index > cursor) parent.appendChild(document.createTextNode(value.slice(cursor, match.index)));
@@ -1554,6 +1577,8 @@ function renderAssistantAnswer(container, answer, provider) {
       section.append(label, copy);
       card.appendChild(section);
     });
+    const actionControls = createInvoiceActionControls(data.INVOICE);
+    if (actionControls) card.appendChild(actionControls);
     container.appendChild(card);
     return true;
   };
