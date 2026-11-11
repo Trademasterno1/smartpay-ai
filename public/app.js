@@ -694,6 +694,137 @@ $("#merchantProfileForm").addEventListener("submit", async event => {
   }
 });
 
+
+function getActionCenterStorage() {
+  try {
+    const role = document.querySelector("#workspaceRole")?.textContent?.trim() || "workspace";
+    const raw = localStorage.getItem("smartpay-action-center-v1-" + role);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) { return {}; }
+}
+
+function saveActionCenterStorage(state) {
+  try {
+    const role = document.querySelector("#workspaceRole")?.textContent?.trim() || "workspace";
+    localStorage.setItem("smartpay-action-center-v1-" + role, JSON.stringify(state));
+  } catch (_) {}
+}
+
+function renderActionCenter() {
+  const container = document.querySelector("#actionCenterList");
+  const count = document.querySelector("#actionCenterCount");
+  if (!container) return;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayKey = date => {
+    const parsed = new Date(String(date || "") + "T00:00:00");
+    return Number.isNaN(parsed.getTime()) ? null : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  };
+  const state = getActionCenterStorage();
+  const candidates = invoices.filter(invoice => {
+    if (invoice.status === "PAID") return false;
+    const due = dayKey(invoice.dueDate);
+    if (!due) return false;
+    const days = Math.round((due - today) / 86400000);
+    return invoice.status === "OVERDUE" || days < 0 || days <= 2;
+  }).map(invoice => {
+    const due = dayKey(invoice.dueDate);
+    const days = Math.round((due - today) / 86400000);
+    const overdue = invoice.status === "OVERDUE" || days < 0;
+    return { invoice, days, overdue, key: [invoice.id, invoice.status, invoice.dueDate].join("|") };
+  }).filter(item => {
+    const saved = state[item.key];
+    if (!saved) return true;
+    if (saved.dismissed) return false;
+    return !saved.snoozedUntil || saved.snoozedUntil <= Date.now();
+  }).sort((a, b) => {
+    if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+    if (a.overdue) return a.days - b.days || Number(b.invoice.amount) - Number(a.invoice.amount);
+    return a.days - b.days || Number(b.invoice.amount) - Number(a.invoice.amount);
+  });
+
+  container.replaceChildren();
+  if (count) count.textContent = candidates.length + " " + (candidates.length === 1 ? "needs attention" : "need attention");
+  if (!candidates.length) {
+    const empty = document.createElement("div");
+    empty.className = "action-center-empty";
+    empty.textContent = invoices.some(invoice => invoice.status !== "PAID")
+      ? "You’re all caught up. No overdue invoices or invoices due within the next 48 hours need attention."
+      : "You’re all caught up. There are no outstanding invoices.";
+    container.appendChild(empty);
+    return;
+  }
+
+  candidates.forEach(item => {
+    const invoice = item.invoice;
+    const card = document.createElement("article");
+    card.className = "action-center-item";
+    const details = document.createElement("div");
+    details.className = "action-center-details";
+    const heading = document.createElement("strong");
+    heading.textContent = invoice.id + " · " + (invoice.customer || "Customer");
+    const meta = document.createElement("span");
+    meta.textContent = money(invoice.amount, invoice.currency || "USD") + " · " + (invoice.email || "No customer email recorded");
+    const reason = document.createElement("p");
+    reason.className = "action-center-reason";
+    reason.textContent = item.overdue
+      ? "Overdue by " + Math.max(1, Math.abs(item.days)) + " day(s) · Follow up now"
+      : item.days === 0 ? "Due today · A friendly reminder may help"
+      : "Due in " + item.days + " day(s) · Consider a preventive reminder";
+    details.append(heading, meta, reason);
+
+    const controls = document.createElement("div");
+    controls.className = "action-center-controls";
+    const priority = document.createElement("span");
+    priority.className = "action-center-priority " + (item.overdue ? "high" : "medium");
+    priority.textContent = item.overdue ? "OVERDUE" : "DUE SOON";
+    const reminder = document.createElement("button");
+    reminder.type = "button";
+    reminder.className = "action-center-primary";
+    reminder.textContent = "Prepare Reminder";
+    reminder.addEventListener("click", () => {
+      const recoveryCard = [...document.querySelectorAll("#recoveryList .recovery-item")].find(row =>
+        row.querySelector(".recovery-details strong")?.textContent.includes(invoice.id)
+      );
+      const draftButton = recoveryCard?.querySelector(".draft-button");
+      if (draftButton) {
+        document.querySelector("#recovery")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        draftButton.click();
+      } else {
+        document.querySelector("#recovery")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+    const collect = document.createElement("button");
+    collect.type = "button";
+    collect.className = "action-center-secondary";
+    collect.textContent = "Collect Payment";
+    collect.addEventListener("click", () => openCollectionSession(invoice.id));
+    const snooze = document.createElement("button");
+    snooze.type = "button";
+    snooze.className = "action-center-text";
+    snooze.textContent = "Remind me tomorrow";
+    snooze.addEventListener("click", () => {
+      const next = getActionCenterStorage();
+      next[item.key] = { snoozedUntil: Date.now() + 86400000 };
+      saveActionCenterStorage(next);
+      renderActionCenter();
+    });
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "action-center-text";
+    dismiss.textContent = "Dismiss";
+    dismiss.addEventListener("click", () => {
+      const next = getActionCenterStorage();
+      next[item.key] = { dismissed: true };
+      saveActionCenterStorage(next);
+      renderActionCenter();
+    });
+    controls.append(priority, reminder, collect, snooze, dismiss);
+    card.append(details, controls);
+    container.appendChild(card);
+  });
+}
+
 async function refreshDashboard() {
   const container = $("#recoveryList");
   if (container) container.innerHTML = '<p class="recovery-empty">Loading outstanding invoices…</p>';
@@ -712,6 +843,7 @@ async function refreshDashboard() {
     invoices = invoiceData;
     renderInvoices();
     renderRecoveryInvoices();
+    renderActionCenter();
     await refreshPaymentHistory();
 
     renderFinancialDashboard();
