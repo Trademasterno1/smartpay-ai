@@ -13,6 +13,7 @@ const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5, connectionTimeoutMillis: 10000 })
   : null;
 let databaseConnected = false;
+let merchantProfile = { businessName: "", address: "", email: "", phone: "", taxNumber: "" };
 const PAYPAL_BASE = process.env.PAYPAL_ENV === "live"
   ? "https://api-m.paypal.com"
   : "https://api-m.sandbox.paypal.com";
@@ -45,6 +46,10 @@ async function initializeDatabase() {
   `);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS line_items JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS merchant_profile JSONB`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS merchant_settings (id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1), profile JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  const merchantResult = await pool.query(`SELECT profile FROM merchant_settings WHERE id = 1`);
+  if (merchantResult.rowCount) merchantProfile = { ...merchantProfile, ...merchantResult.rows[0].profile };
   await pool.query(`
     CREATE TABLE IF NOT EXISTS payment_events (
       id BIGSERIAL PRIMARY KEY,
@@ -67,7 +72,7 @@ async function initializeDatabase() {
   const result = await pool.query(
     `SELECT id, customer, email, amount::text, currency, status,
             to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
-            line_items AS "lineItems"
+            line_items AS "lineItems", merchant_profile AS "merchantProfile"
      FROM invoices ORDER BY due_date, id`
   );
   invoices.splice(0, invoices.length, ...result.rows);
@@ -203,6 +208,28 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/invoices", (_req, res) => res.json(invoices));
 
+app.get("/api/merchant-profile", (_req, res) => res.json(merchantProfile));
+
+app.put("/api/merchant-profile", async (req, res) => {
+  try {
+    const fields = ["businessName", "address", "email", "phone", "taxNumber"];
+    const limits = { businessName: 120, address: 300, email: 254, phone: 40, taxNumber: 40 };
+    const updated = {};
+    for (const field of fields) {
+      updated[field] = String(req.body[field] || "").trim();
+      if (updated[field].length > limits[field]) return res.status(400).json({ error: field + " is too long." });
+    }
+    if (!updated.businessName) return res.status(400).json({ error: "Enter the merchant or business name." });
+    if (updated.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updated.email)) return res.status(400).json({ error: "Enter a valid business email address." });
+    if (pool && databaseConnected) await pool.query(`INSERT INTO merchant_settings (id, profile, updated_at) VALUES (1, $1::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET profile = EXCLUDED.profile, updated_at = NOW()`, [JSON.stringify(updated)]);
+    merchantProfile = updated;
+    return res.json({ profile: merchantProfile, saved: true });
+  } catch (error) {
+    console.error("Merchant profile save failed:", error.message);
+    return res.status(500).json({ error: "Could not save merchant details." });
+  }
+});
+
 app.get("/api/analytics/monthly", async (req, res) => {
   try {
     if (!pool || !databaseConnected) return res.status(503).json({ error: "Monthly analytics are unavailable because the database is not connected." });
@@ -306,11 +333,11 @@ app.post("/api/invoices", async (req, res) => {
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const invoice = {
       id: "INV-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomBytes(3).toString("hex").toUpperCase(),
-      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null
+      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...merchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null
     };
     await pool.query(
-      "INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)",
-      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems)]
+      "INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb)",
+      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems), JSON.stringify(invoice.merchantProfile)]
     );
     invoices.push(invoice);
     console.log("Created invoice " + invoice.id + " and saved it to PostgreSQL.");
