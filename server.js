@@ -448,7 +448,7 @@ app.get("/api/invoices/page", (req, res) => {
   const status = String(req.query.status || "ALL").toUpperCase();
   const from = String(req.query.from || "");
   const to = String(req.query.to || "");
-  const validDate = value => !value || (/^\\d{4}-\\d{2}-\\d{2}$/.test(value) && !Number.isNaN(Date.parse(value + "T00:00:00Z")));
+  const validDate = value => !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value + "T00:00:00Z")) && new Date(value + "T00:00:00Z").toISOString().slice(0, 10) === value);
   if (!validDate(from) || !validDate(to) || (from && to && from > to)) return res.status(400).json({ error:"Choose a valid date range." });
   const today = new Date().toISOString().slice(0,10);
   const filtered = invoices.filter(invoice => {
