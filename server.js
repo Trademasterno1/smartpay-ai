@@ -388,7 +388,7 @@ app.put("/api/invoices/:id", async (req, res) => {
   }
 });
 
-async function createPayPalOrderForInvoice(invoice) {
+async function createPayPalOrderForInvoice(invoice, applicationContext = null) {
   const token = await getPayPalAccessToken();
   const response = await fetch(PAYPAL_BASE + "/v2/checkout/orders", {
     method: "POST",
