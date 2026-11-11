@@ -581,9 +581,13 @@ app.post("/api/recovery/draft", async (req, res) => {
     } else if (process.env.GEMINI_API_KEY) {
       draft = await askGemini(question, context); provider = "Gemini";
     } else return res.status(503).json({ error: "AI is not configured." });
-    const checkout = await createPayPalOrderForInvoice(invoice);
-    const draftWithPaymentLink = draft + "\n\nPay securely with PayPal: " + checkout.approvalUrl;
-    return res.json({ invoiceId: invoice.id, customer: invoice.customer, email: invoice.email, amount: invoice.amount, currency: invoice.currency, dueDate: invoice.dueDate, priority, daysOverdue, draft: draftWithPaymentLink, provider, checkoutUrl: checkout.approvalUrl, sent: false });
+    if (!invoice.paymentToken) {
+      invoice.paymentToken = crypto.randomBytes(32).toString("hex");
+      await persistInvoice(invoice);
+    }
+    const paymentUrl = "/pay/" + encodeURIComponent(invoice.paymentToken);
+    const draftWithPaymentLink = draft + "\n\nView invoice and pay securely: " + paymentUrl;
+    return res.json({ invoiceId: invoice.id, customer: invoice.customer, email: invoice.email, amount: invoice.amount, currency: invoice.currency, dueDate: invoice.dueDate, priority, daysOverdue, draft: draftWithPaymentLink, provider, paymentUrl, sent: false });
   } catch (error) {
     console.error("Recovery draft failed:", error.message);
     return res.status(error.status && error.status >= 400 && error.status < 500 ? error.status : 503).json({ error: error.message || "Unable to generate a reminder draft. Please try again." });
