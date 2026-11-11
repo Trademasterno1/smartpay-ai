@@ -221,6 +221,54 @@ function renderCashFlowForecast() {
       ? "Preventive action: no invoices are overdue. Review the " + soonAll.length + " invoice(s) due within 7 days."
       : "No invoices are currently overdue or due within the next 7 days. Monitor upcoming due dates.";
   container.appendChild(recommendation);
+
+  const aiReview = document.createElement("section");
+  aiReview.className = "forecast-ai-review";
+  const aiHeading = document.createElement("strong");
+  aiHeading.textContent = "AI COLLECTION RISK REVIEW";
+  const aiDescription = document.createElement("p");
+  aiDescription.textContent = "Ask SmartPay AI to rank unpaid invoices by qualitative risk, explain the evidence, and recommend the next collection action.";
+  const aiButton = document.createElement("button");
+  aiButton.type = "button";
+  aiButton.className = "draft-button";
+  aiButton.textContent = "Analyze collection risks with AI";
+  const aiResult = document.createElement("div");
+  aiResult.className = "forecast-ai-result";
+  aiResult.hidden = true;
+  aiButton.addEventListener("click", async () => {
+    aiButton.disabled = true;
+    aiButton.textContent = "Analyzing invoices…";
+    aiResult.hidden = false;
+    aiResult.textContent = "Reviewing current unpaid invoices and due dates…";
+    const question = [
+      "Perform a collection-risk review of every invoice that is not PAID in the supplied live invoice data.",
+      "Rank all outstanding invoices from highest to lowest collection priority.",
+      "For each invoice give: invoice ID, customer, amount and currency, status, due date, days overdue or days until due, qualitative risk level (HIGH, MEDIUM, LOW), the specific evidence for that level, and one practical next collection action.",
+      "Prioritize actual overdue invoices first, then invoices due soon, while considering the outstanding amount as exposure.",
+      "Do not invent payment history, customer behavior, promises, or statistical probabilities. Do not assign percentage chances of payment or default. This is a qualitative operational assessment, not a trained predictive model.",
+      "Keep currencies separate. Exclude PAID invoices. Do not claim that a reminder was sent or payment was collected.",
+      "Finish with the top three actions the merchant should take now. Keep the review concise and use only the supplied invoice data."
+    ].join(" ");
+    try {
+      const response = await fetch("/api/ai/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ question })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "AI risk review is unavailable.");
+      aiResult.textContent = (data.answer || "The AI provider returned no assessment.") +
+        (data.provider ? "\n\nAI provider: " + data.provider : "");
+      aiButton.textContent = "Run analysis again";
+    } catch (error) {
+      aiResult.textContent = error.message || "Could not complete the AI risk review.";
+      aiButton.textContent = "Try analysis again";
+    } finally {
+      aiButton.disabled = false;
+    }
+  });
+  aiReview.append(aiHeading, aiDescription, aiButton, aiResult);
+  container.appendChild(aiReview);
 }
 
 async function refreshMonthlyAnalytics() {
