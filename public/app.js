@@ -51,13 +51,7 @@ function renderRiskReview(container, raw, provider) {
       item.appendChild(description);
       const mentionedInvoice = invoices.find(invoice => {
         const id = String(invoice.id || "");
-        if (!id) return false;
-        const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, "\\    priorityItems.forEach(match => {
-      const item = document.createElement("li");
-      item.textContent = match[2].trim();
-      list.appendChild(item);
-    });");
-        return new RegExp("(^|[^A-Z0-9_-])" + escapedId + "($|[^A-Z0-9_-])", "i").test(recommendation);
+        return id && recommendation.toLowerCase().includes(id.toLowerCase());
       });
       if (mentionedInvoice) {
         const controls = createInvoiceActionControls(mentionedInvoice.id);
