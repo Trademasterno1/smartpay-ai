@@ -273,7 +273,7 @@ async function initializeDatabase() {
     );
   }
   const judgeResult = await pool.query(
-    `SELECT id, customer, email, amount::text, currency, status,
+    `SELECT id, customer, email, amount::text, currency, status, tax_rate::text AS "taxRate",
             to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
             line_items AS "lineItems", merchant_profile AS "merchantProfile",
             payment_token AS "paymentToken"
@@ -293,7 +293,7 @@ async function initializeDatabase() {
     await pool.query(`UPDATE invoices SET payment_token=$2 WHERE id=$1 AND payment_token IS NULL`, [row.id, crypto.randomBytes(32).toString("hex")]);
   }
   const result = await pool.query(
-    `SELECT id, customer, email, amount::text, currency, status,
+    `SELECT id, customer, email, amount::text, currency, status, tax_rate::text AS "taxRate",
             to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
             line_items AS "lineItems", merchant_profile AS "merchantProfile",
             payment_token AS "paymentToken"
@@ -308,13 +308,14 @@ async function persistInvoice(invoice) {
   if (!pool) return;
   const table = workspaceTable("invoices");
   await pool.query(
-    `INSERT INTO ${table} (id, customer, email, amount, currency, status, due_date, paypal_order_id, payment_token, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+    `INSERT INTO ${table} (id, customer, email, amount, currency, status, due_date, paypal_order_id, payment_token, tax_rate, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
      ON CONFLICT (id) DO UPDATE SET customer=EXCLUDED.customer, email=EXCLUDED.email,
        amount=EXCLUDED.amount, currency=EXCLUDED.currency, status=EXCLUDED.status,
        due_date=EXCLUDED.due_date, paypal_order_id=EXCLUDED.paypal_order_id,
+       tax_rate=EXCLUDED.tax_rate,
        payment_token=COALESCE(${table}.payment_token, EXCLUDED.payment_token), updated_at=NOW()`,
-    [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId, invoice.paymentToken || null]
+    [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId, invoice.paymentToken || null, Number(invoice.taxRate || 0)]
   );
 }
 
