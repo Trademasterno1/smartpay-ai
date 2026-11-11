@@ -834,3 +834,41 @@ footer span{color:#7f9ab6}
  .invoice-pagination{align-items:flex-start;flex-direction:column}.invoice-pagination>div{width:100%;justify-content:space-between}
  footer span{float:none;display:block;margin-top:7px}
 }
+
+
+/* Focused interaction polish: keep invoice text stable on hover. */
+#invoiceRows tr,
+#invoiceRows td {
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+#invoiceRows tr:hover {
+  background: transparent !important;
+  filter: none !important;
+  transform: none !important;
+}
+#invoiceRows tr:hover td {
+  filter: none !important;
+  background-color: inherit !important;
+  color: inherit;
+  box-shadow: inset 0 1px 0 rgba(75,190,235,.16), inset 0 -1px 0 rgba(75,190,235,.16);
+}
+#invoiceRows tr:hover td:first-child {
+  box-shadow: inset 1px 0 0 rgba(75,190,235,.28), inset 0 1px 0 rgba(75,190,235,.16), inset 0 -1px 0 rgba(75,190,235,.16);
+}
+#invoiceRows tr:hover td:last-child {
+  box-shadow: inset -1px 0 0 rgba(75,190,235,.28), inset 0 1px 0 rgba(75,190,235,.16), inset 0 -1px 0 rgba(75,190,235,.16);
+}
+/* Financial KPI colors: Collected green, Outstanding amber, Overdue red. */
+.stats .stat-card:nth-child(2) .stat-top,
+.stats .stat-card:nth-child(2) .stat-value { color: #22b982; }
+.stats .stat-card:nth-child(2) .stat-top span { color: #22b982; }
+.stats .stat-card:nth-child(3) .stat-top,
+.stats .stat-card:nth-child(3) .stat-value { color: #f0bd4f; }
+.stats .stat-card:nth-child(3) .stat-top span { color: #f0bd4f; }
+.stats .stat-card:nth-child(4) .stat-top,
+.stats .stat-card:nth-child(4) .stat-value { color: #ff7b88; }
+.stats .stat-card:nth-child(4) .stat-top span { color: #ff7b88; }
+/* A subtle edge glow only; no brightness wash over invoice content. */
+#invoiceRows tr:hover td { text-shadow: none !important; }
+.ai-robot-art { width: 30px; height: 30px; display:block; filter: drop-shadow(0 2px 7px rgba(45,205,235,.28)); }
+.ai-icon { display:grid; place-items:center; overflow:hidden; }
