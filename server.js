@@ -816,6 +816,50 @@ app.post("/api/recovery/draft", async (req, res) => {
   } catch (error) {
     console.error("Recovery draft failed:", error.message);
     return res.status(error.status && error.status >= 400 && error.status < 500 ? error.status : 503).json({ error: error.message || "Unable to generate a reminder draft. Please try again." });
+
+  }
+});
+
+app.post("/api/recovery/send-email", async (req, res) => {
+  const invoiceId = String(req.body.invoiceId || "").trim();
+  const subject = String(req.body.subject || "").trim().slice(0, 200);
+  const message = String(req.body.message || "").trim().slice(0, 12000);
+  const invoice = invoices.find(item => item.id === invoiceId);
+  if (!invoice) return res.status(404).json({ error: "Invoice not found." });
+  if (invoice.status === "PAID") return res.status(400).json({ error: "This invoice is already paid; no reminder was sent." });
+  if (!subject || !message) return res.status(400).json({ error: "Enter an email subject and message." });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(invoice.email || ""))) {
+    return res.status(400).json({ error: "This invoice does not have a valid customer email address." });
+  }
+  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) {
+    return res.status(503).json({ error: "Email sending is not configured yet. Add RESEND_API_KEY and RESEND_FROM_EMAIL in the server environment." });
+  }
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + process.env.RESEND_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL,
+        to: [invoice.email],
+        ...(invoice.merchantProfile?.email ? { reply_to: invoice.merchantProfile.email } : {}),
+        subject,
+        text: message
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.id) {
+      console.error("Transactional email provider rejected a send request:", response.status, result.message || result.name || "Unknown provider error");
+      return res.status(502).json({ error: "The email provider could not accept this message. Check the sending domain and provider configuration." });
+    }
+    console.log("Recovery email accepted by provider for invoice " + invoice.id + "; message id " + result.id);
+    return res.json({ sent: true, messageId: result.id, recipient: invoice.email });
+  } catch (error) {
+    console.error("Recovery email send failed:", error.message);
+    return res.status(502).json({ error: "The email could not be sent. Please retry after checking the email provider connection." });
   }
 });
 
