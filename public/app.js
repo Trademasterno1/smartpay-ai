@@ -234,16 +234,21 @@ function collectInvoiceItems() {
 
 function updateInvoiceItemsTotal() {
   const rows = [...$("#invoiceItemRows").querySelectorAll(".invoice-item-row")];
-  let cents = 0;
+  let subtotalCents = 0;
   rows.forEach(row => {
     const qty = Number(row.querySelector(".item-quantity").value);
     const price = Number(row.querySelector(".item-unit-price").value);
     const lineCents = Number.isFinite(qty * price) ? Math.round(qty * price * 100) : 0;
-    cents += lineCents;
+    subtotalCents += lineCents;
     row.querySelector(".item-row-total").textContent = money(lineCents / 100, "USD");
   });
-  $("#invoiceAmount").value = (cents / 100).toFixed(2);
-  $("#invoiceItemsTotal").textContent = money(cents / 100, "USD");
+  const taxRate = Math.min(100, Math.max(0, Number($("#invoiceTaxRate")?.value || 0)));
+  const taxCents = Math.round(subtotalCents * taxRate / 100);
+  const totalCents = subtotalCents + taxCents;
+  $("#invoiceAmount").value = (totalCents / 100).toFixed(2);
+  $("#invoiceItemsTotal").textContent = money(subtotalCents / 100, "USD");
+  $("#invoiceTaxAmount").textContent = money(taxCents / 100, "USD");
+  $("#invoiceGrandTotal").textContent = money(totalCents / 100, "USD");
 }
 
 function openInvoicePDF(invoiceId) {
@@ -645,6 +650,10 @@ function startEditInvoice(invoiceId) {
   (Array.isArray(invoice.lineItems) && invoice.lineItems.length ? invoice.lineItems : [{description:"Services / goods",quantity:1,unitPrice:invoice.amount}]).forEach(item => addInvoiceItemRow(item));
   updateInvoiceItemsTotal();
   form.elements.dueDate.value = invoice.dueDate;
+  $("#invoiceTaxRate").value = Number(invoice.taxRate || 0);
+  updateInvoiceItemsTotal();
+  form.hidden = false;
+  $("#showCreateInvoiceButton").hidden = true;
   $("#createInvoiceButton").textContent = "Save changes";
   $("#cancelEditButton").hidden = false;
   $("#createInvoiceMessage").textContent = "Editing " + invoice.id + ". Paid or PayPal-linked invoices are locked.";
@@ -1740,6 +1749,12 @@ $("#invoiceSearch").addEventListener("input", renderInvoices);
 $("#invoiceStatusFilter").addEventListener("change", renderInvoices);
 $("#monthlyRange").addEventListener("change", refreshMonthlyAnalytics);
 
+$("#showCreateInvoiceButton").addEventListener("click", () => {
+  $("#createInvoiceForm").hidden = false;
+  $("#showCreateInvoiceButton").hidden = true;
+  $("#createInvoiceForm").scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
 $("#cancelEditButton").addEventListener("click", () => {
   $("#createInvoiceForm").reset();
   $("#invoiceItemRows").innerHTML = "";
@@ -1747,6 +1762,10 @@ $("#cancelEditButton").addEventListener("click", () => {
   $("#editingInvoiceId").value = "";
   $("#createInvoiceButton").textContent = "Create invoice";
   $("#cancelEditButton").hidden = true;
+  $("#createInvoiceForm").hidden = true;
+  $("#showCreateInvoiceButton").hidden = false;
+  $("#invoiceTaxRate").value = "0";
+  updateInvoiceItemsTotal();
   $("#createInvoiceMessage").textContent = "New invoices are saved to Neon as UNPAID. No payment is taken.";
   $("#createInvoiceMessage").className = "";
 });
@@ -1759,7 +1778,7 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
   const originalText = button.textContent;
   const formData = new FormData(form);
   const invoiceId = String(formData.get("invoiceId") || "");
-  const payload = { customer: formData.get("customer"), email: formData.get("email"), amount: formData.get("amount"), dueDate: formData.get("dueDate"), lineItems: collectInvoiceItems() };
+  const payload = { customer: formData.get("customer"), email: formData.get("email"), amount: formData.get("amount"), taxRate: formData.get("taxRate") || "0", dueDate: formData.get("dueDate"), lineItems: collectInvoiceItems() };
   button.disabled = true;
   button.textContent = "Saving…";
   message.textContent = invoiceId ? "Updating invoice in Neon…" : "Saving invoice to Neon…";
@@ -1778,6 +1797,9 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
     $("#editingInvoiceId").value = "";
     $("#createInvoiceButton").textContent = "Create invoice";
     $("#cancelEditButton").hidden = true;
+    $("#createInvoiceForm").hidden = true;
+    $("#showCreateInvoiceButton").hidden = false;
+    $("#invoiceTaxRate").value = "0";
     await refreshDashboard();
     message.textContent = invoiceId ? data.invoice.id + " updated and saved." : data.invoice.id + " created and saved as UNPAID.";
     message.className = "success-message";
@@ -1791,7 +1813,9 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
 });
 
 $("#addInvoiceItemButton").addEventListener("click", () => addInvoiceItemRow());
+$("#invoiceTaxRate").addEventListener("input", updateInvoiceItemsTotal);
 addInvoiceItemRow();
+updateInvoiceItemsTotal();
 
 loadMerchantProfile().catch(error => console.error("Merchant profile loading failed:", error));
 refreshDashboard().catch(error => console.error(error));
