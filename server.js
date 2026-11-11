@@ -44,6 +44,7 @@ async function initializeDatabase() {
     )
   `);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
+  await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS line_items JSONB NOT NULL DEFAULT '[]'::jsonb`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS payment_events (
       id BIGSERIAL PRIMARY KEY,
@@ -65,7 +66,8 @@ async function initializeDatabase() {
   }
   const result = await pool.query(
     `SELECT id, customer, email, amount::text, currency, status,
-            to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId"
+            to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
+            line_items AS "lineItems"
      FROM invoices ORDER BY due_date, id`
   );
   invoices.splice(0, invoices.length, ...result.rows);
@@ -267,26 +269,48 @@ app.get("/api/payments", async (_req, res) => {
   }
 });
 
+function validateInvoiceLineItems(rawItems) {
+  if (!Array.isArray(rawItems) || rawItems.length < 1 || rawItems.length > 50) return { error: "Add between 1 and 50 invoice items." };
+  const items = [];
+  let totalCents = 0;
+  for (const raw of rawItems) {
+    const description = String(raw?.description || "").trim();
+    const quantityInput = String(raw?.quantity ?? "").trim();
+    const priceInput = String(raw?.unitPrice ?? "").trim();
+    const quantity = Number(quantityInput), unitPrice = Number(priceInput);
+    if (!description || description.length > 300) return { error: "Each item needs a description (maximum 300 characters)." };
+    if (!/^\d{1,6}(\.\d{1,3})?$/.test(quantityInput) || !Number.isFinite(quantity) || quantity <= 0 || quantity > 999999) return { error: "Enter a valid quantity greater than zero (up to 3 decimals)." };
+    if (!/^\d{1,8}(\.\d{1,2})?$/.test(priceInput) || !Number.isFinite(unitPrice) || unitPrice <= 0 || unitPrice > 99999999.99) return { error: "Enter a valid unit price greater than zero (up to 2 decimals)." };
+    const lineCents = Math.round(quantity * unitPrice * 100);
+    if (!Number.isSafeInteger(lineCents) || lineCents <= 0) return { error: "An item total is invalid." };
+    totalCents += lineCents;
+    items.push({ description, quantity, unitPrice: unitPrice.toFixed(2), lineTotal: (lineCents / 100).toFixed(2) });
+  }
+  if (!Number.isSafeInteger(totalCents) || totalCents <= 0 || totalCents > 9999999999) return { error: "The invoice total is outside the supported range." };
+  return { items, amount: (totalCents / 100).toFixed(2) };
+}
+
 app.post("/api/invoices", async (req, res) => {
   try {
     if (!pool || !databaseConnected) return res.status(503).json({ error: "Persistent database is unavailable. No invoice was created." });
     const customer = String(req.body.customer || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
-    const amountInput = String(req.body.amount ?? "").trim();
     const dueDate = String(req.body.dueDate || "").trim();
-    const amount = Number(amountInput);
+    const validatedItems = validateInvoiceLineItems(req.body.lineItems);
+    if (validatedItems.error) return res.status(400).json({ error: validatedItems.error });
+    const amount = Number(validatedItems.amount);
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid customer email address." });
-    if (!/^\d{1,8}(\.\d{1,2})?$/.test(amountInput) || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "Enter an amount greater than zero with up to 2 decimal places." });
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const invoice = {
       id: "INV-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomBytes(3).toString("hex").toUpperCase(),
-      customer, email, amount: amount.toFixed(2), currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null
+      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null
     };
     await pool.query(
-      "INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null]
+      "INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)",
+      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems)]
     );
     invoices.push(invoice);
     console.log("Created invoice " + invoice.id + " and saved it to PostgreSQL.");
@@ -309,20 +333,22 @@ app.put("/api/invoices/:id", async (req, res) => {
     if (invoice.paypalOrderId) return res.status(409).json({ error: "This invoice already has a PayPal order. Editing is locked to protect the checkout amount." });
     const customer = String(req.body.customer || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
-    const amountInput = String(req.body.amount ?? "").trim();
     const dueDate = String(req.body.dueDate || "").trim();
-    const amount = Number(amountInput);
+    const validatedItems = validateInvoiceLineItems(req.body.lineItems);
+    if (validatedItems.error) return res.status(400).json({ error: validatedItems.error });
+    const amount = Number(validatedItems.amount);
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid customer email address." });
-    if (!/^\d{1,8}(\.\d{1,2})?$/.test(amountInput) || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "Enter an amount greater than zero with up to 2 decimal places." });
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const updated = await pool.query(
-      `UPDATE invoices SET customer=$2, email=$3, amount=$4, due_date=$5, updated_at=NOW()
+      `UPDATE invoices SET customer=$2, email=$3, amount=$4, due_date=$5, line_items=$6::jsonb, updated_at=NOW()
        WHERE id=$1 AND status <> 'PAID' AND paypal_order_id IS NULL
        RETURNING id, customer, email, amount::text, currency, status,
-                 to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId"`,
-      [invoice.id, customer, email, amount.toFixed(2), dueDate]
+                 to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
+                 line_items AS "lineItems"`,
+      [invoice.id, customer, email, amount.toFixed(2), dueDate, JSON.stringify(validatedItems.items)]
     );
     if (!updated.rowCount) return res.status(409).json({ error: "Invoice could not be edited. It may have been paid or linked to a PayPal order." });
     Object.assign(invoice, updated.rows[0]);
