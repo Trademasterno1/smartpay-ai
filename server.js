@@ -320,6 +320,7 @@ function validateInvoiceLineItems(rawItems) {
 app.post("/api/invoices", async (req, res) => {
   try {
     if (!pool || !databaseConnected) return res.status(503).json({ error: "Persistent database is unavailable. No invoice was created." });
+    if (!merchantProfile.businessName) return res.status(400).json({ error: "Save the merchant details before issuing an invoice." });
     const customer = String(req.body.customer || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
     const dueDate = String(req.body.dueDate || "").trim();
