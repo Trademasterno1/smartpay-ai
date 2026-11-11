@@ -396,14 +396,14 @@ function renderCashFlowForecast() {
           <strong>${escapeHTML(money(total30, group.currency))}</strong>
         </div>
         <div class="collection-bar forecast-bar" role="img" aria-label="Overdue and upcoming receivables distribution">
-          <span class="collection-bar-paid" style="width:${overdueWidth}%"></span>
-          <span class="collection-bar-open" style="width:${next7Width}%"></span>
-          <span class="forecast-bar-later" style="width:${days8Width}%"></span>
+          <span class="forecast-segment-overdue" style="width:${overdueWidth}%"></span>
+          <span class="forecast-segment-next7" style="width:${next7Width}%"></span>
+          <span class="forecast-segment-days8" style="width:${days8Width}%"></span>
         </div>
         <div class="monthly-chart-legend forecast-legend">
-          <span><i class="legend-dot red-dot"></i> Overdue</span>
-          <span><i class="legend-dot paid-dot"></i> Due in 7 days</span>
-          <span><i class="legend-dot invoice-dot"></i> Due in 8–30 days</span>
+          <span><i class="legend-dot forecast-dot-overdue"></i> Overdue</span>
+          <span><i class="legend-dot forecast-dot-next7"></i> Due in 7 days</span>
+          <span><i class="legend-dot forecast-dot-days8"></i> Due in 8–30 days</span>
         </div>
       </div>`;
   }).join("");
