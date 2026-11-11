@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js?v=20261111-invoice-pdf1" defer></script>
+  <script src="/app.js?v=20261111-line-items1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -60,8 +60,13 @@
             <div class="create-invoice-fields">
               <label>Customer name<input name="customer" maxlength="120" placeholder="e.g. Acme Studio" required></label>
               <label>Customer email<input name="email" type="email" maxlength="254" placeholder="accounts@example.com" required></label>
-              <label>Amount (USD)<input name="amount" type="number" min="0.01" max="99999999.99" step="0.01" placeholder="250.00" required></label>
+              <label>Total (USD)<input name="amount" id="invoiceAmount" type="number" min="0.01" max="99999999.99" step="0.01" placeholder="0.00" readonly required></label>
               <label>Due date<input name="dueDate" type="date" required></label>
+            </div>
+            <div class="line-items-editor">
+              <div class="line-items-heading"><strong>Invoice items</strong><button type="button" id="addInvoiceItemButton" class="secondary-button">+ Add item</button></div>
+              <div id="invoiceItemRows"></div>
+              <div class="line-items-total">Calculated total <strong id="invoiceItemsTotal">$0.00</strong></div>
             </div>
             <div class="create-invoice-actions"><button type="submit" id="createInvoiceButton">Create invoice</button><button type="button" id="cancelEditButton" class="secondary-button" hidden>Cancel edit</button><span id="createInvoiceMessage" role="status" aria-live="polite">New invoices are saved to Neon as UNPAID. No payment is taken.</span></div>
           </form>
