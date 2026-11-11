@@ -1758,6 +1758,7 @@ $("#monthlyRange").addEventListener("change", refreshMonthlyAnalytics);
 $("#showCreateInvoiceButton").addEventListener("click", () => {
   $("#createInvoiceForm").hidden = false;
   $("#showCreateInvoiceButton").hidden = true;
+  $("#cancelEditButton").hidden = false;
   $("#createInvoiceForm").scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
