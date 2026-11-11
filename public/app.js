@@ -1618,14 +1618,17 @@ function renderAssistantAnswer(container, answer, provider) {
   const mentionedInvoices = invoices.filter(invoice => {
     const id = String(invoice.id || "");
     if (!id) return false;
-    const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, "\\  flushList();
-  flushCode();
-  if (provider) {
-    const meta = document.createElement("div"); meta.className = "ai-answer-provider";
-    meta.textContent = "AI provider · " + provider; container.appendChild(meta);
-  }
-}");
-    return new RegExp("(^|[^A-Z0-9_-])" + escapedId + "($|[^A-Z0-9_-])", "i").test(String(answer || ""));
+    const answerText = String(answer || "");
+    let position = answerText.toLowerCase().indexOf(id.toLowerCase());
+    while (position >= 0) {
+      const before = position > 0 ? answerText[position - 1] : "";
+      const afterIndex = position + id.length;
+      const after = afterIndex < answerText.length ? answerText[afterIndex] : "";
+      const isBoundary = char => !char || !/[A-Z0-9_-]/i.test(char);
+      if (isBoundary(before) && isBoundary(after)) return true;
+      position = answerText.toLowerCase().indexOf(id.toLowerCase(), position + 1);
+    }
+    return false;
   });
   const alreadyAttached = new Set(
     [...container.querySelectorAll(".assistant-invoice-head h3")].map(node => node.textContent.trim())
