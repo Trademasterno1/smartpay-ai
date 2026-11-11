@@ -97,7 +97,7 @@ function renderRiskReview(container, raw, provider) {
 }
 
 
-function renderRiskFallback(container, ranked, provider) {
+function renderRiskFallback(container, ranked, provider, missingInvoiceIds = []) {
   const styleId = "smartpay-risk-review-styles";
   if (!document.getElementById(styleId)) {
     const style = document.createElement("style");
@@ -415,7 +415,7 @@ function renderCashFlowForecast() {
       "Prioritize actual overdue invoices first, then invoices due soon, while considering the outstanding amount as exposure.",
       "Do not invent payment history, customer behavior, promises, or statistical probabilities. Do not assign percentage chances of payment or default. This is a qualitative operational assessment, not a trained predictive model.",
       "Keep currencies separate. Exclude PAID invoices. Do not claim that a reminder was sent or payment was collected.",
-      "Finish with the top three actions the merchant should take now. Keep the review concise and use only the supplied invoice data."
+      "Do not use a Markdown table. Return one compact labeled block per invoice, copying each invoice ID exactly. Include customer, amount/currency, status, due date, timing, risk, evidence, and next action. Finish with the top three actions. Never omit an outstanding invoice; use only supplied data."
     ].join(" ");
     try {
       const response = await fetch("/api/ai/ask", {
@@ -430,6 +430,7 @@ function renderCashFlowForecast() {
       const completeAIReview = outstanding.length > 0 &&
         outstanding.every(invoice => answer.includes(String(invoice.id))) &&
         answer.length > 250;
+      const missingAIInvoiceIds = outstanding.filter(invoice => !answer.includes(String(invoice.id))).map(invoice => String(invoice.id));
       if (completeAIReview) {
         renderRiskReview(aiResult, answer, data.provider);
       } else {
@@ -464,7 +465,7 @@ function renderCashFlowForecast() {
             " · Due: " + (invoice.dueDate || "Not recorded") + "\nEvidence: " + item.evidence +
             "\nNext action: " + item.action;
         });
-        renderRiskFallback(aiResult, ranked, data.provider);
+        renderRiskFallback(aiResult, ranked, data.provider, missingAIInvoiceIds);
       }
       aiButton.textContent = "Run analysis again";
     } catch (error) {
