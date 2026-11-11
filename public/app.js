@@ -71,6 +71,7 @@ async function refreshDashboard() {
     invoices = invoiceData;
     renderInvoices();
     renderRecoveryInvoices();
+    await refreshPaymentHistory();
 
     // Summary cards are secondary; keep the recovery workspace usable if this request fails.
     try {
@@ -106,6 +107,33 @@ async function refreshDashboard() {
     }
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function refreshPaymentHistory() {
+  const container = $("#paymentHistoryRows");
+  if (!container) return;
+  try {
+    const response = await fetch("/api/payments", { cache: "no-store", headers: { "Accept": "application/json" } });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Payment history is unavailable.");
+    if (!Array.isArray(data) || !data.length) {
+      container.innerHTML = '<tr><td colspan="5">No captured payments recorded yet.</td></tr>';
+      return;
+    }
+    container.innerHTML = data.map(payment => {
+      const date = new Date(payment.createdAt);
+      const dateLabel = Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+      return `<tr>
+        <td><strong>${escapeHTML(payment.invoiceId)}</strong><small>${escapeHTML(payment.customer)}</small></td>
+        <td class="amount">${money(payment.amount, payment.currency)}</td>
+        <td><span class="status PAID">CAPTURED</span></td>
+        <td><small>${escapeHTML(payment.captureId || payment.paypalOrderId || "—")}</small></td>
+        <td><small>${escapeHTML(dateLabel)}</small></td>
+      </tr>`;
+    }).join("");
+  } catch (error) {
+    container.innerHTML = '<tr><td colspan="5">Could not load payment history. ' + escapeHTML(error.message) + '</td></tr>';
   }
 }
 

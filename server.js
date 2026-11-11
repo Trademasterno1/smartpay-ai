@@ -197,7 +197,30 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, app: "SmartPay AI", paypalConfigured: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET), databaseConfigured: Boolean(pool), databaseConnected });
 });
 
+
 app.get("/api/invoices", (_req, res) => res.json(invoices));
+
+app.get("/api/payments", async (_req, res) => {
+  try {
+    if (!pool || !databaseConnected) return res.status(503).json({ error: "Payment history is unavailable because the database is not connected." });
+    const result = await pool.query(
+      `SELECT pe.id, pe.invoice_id AS "invoiceId", i.customer,
+              pe.paypal_order_id AS "paypalOrderId", pe.event_type AS "eventType",
+              pe.amount::text AS amount, pe.currency,
+              pe.details->>'captureId' AS "captureId",
+              pe.details->>'status' AS "paypalStatus",
+              pe.created_at AS "createdAt"
+       FROM payment_events pe
+       JOIN invoices i ON i.id = pe.invoice_id
+       ORDER BY pe.created_at DESC
+       LIMIT 100`
+    );
+    return res.json(result.rows);
+  } catch (error) {
+    console.error("Payment history lookup failed:", error.message);
+    return res.status(500).json({ error: "Could not load payment history." });
+  }
+});
 
 app.post("/api/invoices", async (req, res) => {
   try {

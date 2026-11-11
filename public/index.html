@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js?v=20261111-invoice-management1" defer></script>
+  <script src="/app.js?v=20261111-payment-history1" defer></script>
 </head>
 <body>
   <div class="shell">
@@ -55,6 +55,11 @@
           <div class="ai-response" id="aiResponse" aria-live="polite">✦ Your AI insights will appear here.</div>
           <div class="ai-disclaimer">AI-generated insights are informational. Verify financial records before acting.</div>
         </article>
+      </section>
+      <section class="panel payment-history-panel" id="payments">
+        <div class="panel-heading"><div><div class="eyebrow">AUDIT TRAIL</div><h2>Payment history</h2></div><span class="tiny-tag">LATEST 100</span></div>
+        <p class="recovery-intro">Confirmed PayPal captures recorded in the database. This is a read-only history.</p>
+        <div class="table-wrap"><table><thead><tr><th>INVOICE / CUSTOMER</th><th>AMOUNT</th><th>RESULT</th><th>CAPTURE ID</th><th>DATE</th></tr></thead><tbody id="paymentHistoryRows"><tr><td colspan="5">Loading payment history…</td></tr></tbody></table></div>
       </section>
       <section class="panel recovery-panel" id="recovery">
         <div class="panel-heading"><div><div class="eyebrow">SMART RECOVERY WORKSPACE</div><h2>Payment Recovery Copilot</h2></div><span class="tiny-tag">HUMAN APPROVAL</span></div>
