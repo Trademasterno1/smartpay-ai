@@ -494,15 +494,15 @@ function renderRecoveryInvoices() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate reminder.");
         const paymentLink = document.createElement("a");
-        let safeCheckoutUrl;
-        try { safeCheckoutUrl = new URL(data.checkoutUrl); } catch (_) { throw new Error("PayPal did not return a valid checkout link."); }
-        if (safeCheckoutUrl.protocol !== "https:" || !["paypal.com", "www.paypal.com", "www.sandbox.paypal.com"].includes(safeCheckoutUrl.hostname)) throw new Error("The PayPal checkout link is not trusted.");
-        paymentLink.href = safeCheckoutUrl.href;
+        let safePaymentUrl;
+        try { safePaymentUrl = new URL(data.paymentUrl, window.location.origin); } catch (_) { throw new Error("The secure invoice link is invalid."); }
+        if (safePaymentUrl.origin !== window.location.origin || !safePaymentUrl.pathname.startsWith("/pay/")) throw new Error("The secure invoice link is not trusted.");
+        paymentLink.href = safePaymentUrl.href;
         paymentLink.target = "_blank";
         paymentLink.rel = "noopener noreferrer";
-        paymentLink.textContent = "Open secure PayPal checkout";
+        paymentLink.textContent = "Open secure invoice & payment page";
         paymentLink.className = "recovery-payment-link";
-        const paymentMarker = "\\n\\nPay securely with PayPal:";
+        const paymentMarker = "\\n\\nView invoice and pay securely:";
         const paymentMarkerIndex = data.draft.indexOf(paymentMarker);
         const draftText = paymentMarkerIndex >= 0 ? data.draft.slice(0, paymentMarkerIndex) : data.draft;
         draft.textContent = "To: " + data.email + "\\nInvoice: " + data.invoiceId + " · " + money(data.amount, data.currency) + "\\nPriority: " + data.priority + (data.daysOverdue ? " · " + data.daysOverdue + " days overdue" : "") + "\\n\\n" + draftText + "\\n\\nAI provider: " + data.provider + "\\nDraft only — not sent. Payment requires customer approval.";
