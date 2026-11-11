@@ -1097,3 +1097,38 @@ refreshDashboard().catch(error => console.error(error));
 loadPayPalSdk().catch(error => console.error(error));
 $('#exportInvoicesButton').addEventListener('click', exportInvoicesCSV);
 $('#exportPaymentsButton').addEventListener('click', exportPaymentsCSV);
+
+
+async function initializeWorkspaceAccess() {
+  try {
+    const response = await fetch("/api/session", { cache: "no-store", credentials: "same-origin" });
+    if (!response.ok) {
+      window.location.replace("/login");
+      return;
+    }
+    const session = await response.json();
+    const roleLabel = session.role === "judge" ? "Judge Demo" : "Administrator";
+    const roleElement = document.getElementById("workspaceRole");
+    if (roleElement) roleElement.textContent = roleLabel;
+    if (session.role === "judge") {
+      const merchantPanel = document.querySelector(".merchant-profile-panel");
+      if (merchantPanel) merchantPanel.hidden = true;
+      const eyebrow = document.querySelector(".topbar .eyebrow");
+      if (eyebrow) eyebrow.textContent = "JUDGE DEMO · SANDBOX WORKSPACE";
+      const heading = document.querySelector(".topbar h1");
+      if (heading) heading.innerHTML = 'Explore SmartPay AI <span>✦</span>';
+    }
+    const logoutButton = document.getElementById("logoutButton");
+    if (logoutButton) logoutButton.addEventListener("click", async () => {
+      logoutButton.disabled = true;
+      try {
+        await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+      } finally {
+        window.location.replace("/login");
+      }
+    });
+  } catch (_) {
+    window.location.replace("/login");
+  }
+}
+initializeWorkspaceAccess();
