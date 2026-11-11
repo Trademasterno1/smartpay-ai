@@ -150,7 +150,7 @@ async function askGroq(question, context) {
       temperature: 0.2,
       max_completion_tokens: 1800,
       messages: [
-        { role: "system", content: "SMARTPAY_AI_SYSTEM_INSTRUCTION" },
+        { role: "system", content: SMARTPAY_AI_SYSTEM_INSTRUCTION },
         { role: "user", content: "Invoice data: " + context + "\nUser question: " + question }
       ]
     })
@@ -608,7 +608,7 @@ app.post("/api/ai/ask", async (req, res) => {
   const todayTime = Date.parse(today + "T00:00:00Z");
   const aiInvoices = invoices.map(invoice => {
     const dueDate = String(invoice.dueDate || "").trim();
-    const dueDateValid = /^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate) &&
+    const dueDateValid = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) &&
       !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) &&
       new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     const dueTime = dueDateValid ? Date.parse(dueDate + "T00:00:00Z") : NaN;
