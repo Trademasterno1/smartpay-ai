@@ -600,3 +600,18 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 .action-center-panel .action-center-empty{background:rgba(255,255,255,.7)}
 #generateActionBriefButton:disabled{opacity:.65;cursor:wait}
 @media(max-width:700px){.action-center-paid-row{align-items:flex-start;flex-direction:column}.action-center-paid-row button{width:100%}}
+
+/* Daily Action Center: full-card status colors and compact task groups */
+.action-center-group{display:grid;gap:8px;margin:12px 0}
+.action-center-group .action-center-subtitle{margin:5px 0 2px;font-size:11px;letter-spacing:.55px}
+.action-center-group-empty{margin:0;padding:9px 12px;color:#75859a;font-size:11px}
+.action-center-item.overdue{background:#fde8e8!important;border:1px solid #efb6b6!important}
+.action-center-item.upcoming{background:#fff4d6!important;border:1px solid #efd58c!important}
+.action-center-item.completed{background:#e5f6e9!important;border:1px solid #a9d9b5!important}
+.action-center-item.overdue .action-center-details strong{color:#8f242b}
+.action-center-item.upcoming .action-center-details strong{color:#805800}
+.action-center-item.completed .action-center-details strong{color:#17643b}
+.action-center-item.overdue .action-center-reason{color:#9b343b}
+.action-center-item.upcoming .action-center-reason{color:#87620b}
+.action-center-item.completed .action-center-details>span{color:#34754f}
+.action-center-paid{margin-top:0}
