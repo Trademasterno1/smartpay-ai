@@ -21,6 +21,83 @@ function renderRiskReview(container, raw, provider) {
     style.textContent = ".risk-review{display:grid;gap:14px;margin-top:16px}.risk-review-intro{color:#64748b;line-height:1.65}.risk-invoice-card{background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:18px;box-shadow:0 5px 18px rgba(23,36,58,.045)}.risk-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.risk-card-title{font-size:15px;font-weight:800;color:#17243a;overflow-wrap:anywhere}.risk-level{font-size:10px;font-weight:800;letter-spacing:.6px;padding:6px 9px;border-radius:20px;white-space:nowrap}.risk-level.HIGH{background:#fff0f0;color:#b6424a}.risk-level.MEDIUM{background:#fff7e7;color:#9b6800}.risk-level.LOW{background:#eaf7f0;color:#168257}.risk-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}.risk-fact{background:#f7f9fc;border-radius:9px;padding:10px;min-width:0}.risk-fact span{display:block;color:#8290a3;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}.risk-fact strong{font-size:13px;overflow-wrap:anywhere}.risk-copy{font-size:13px;line-height:1.65;color:#42516a;margin:10px 0 0}.risk-copy b{display:block;color:#17243a;font-size:10px;letter-spacing:.7px;text-transform:uppercase;margin-bottom:4px}.risk-action{background:#f2f7ff;border-left:3px solid #1769e0;border-radius:7px;padding:12px;margin-top:12px;color:#243b5a;font-size:13px;line-height:1.65}.risk-action b{display:block;font-size:10px;letter-spacing:.7px;margin-bottom:4px}.risk-action a{display:inline-block;margin-top:6px;color:#1769e0;font-weight:700;overflow-wrap:anywhere}.risk-top-actions{background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:16px}.risk-top-actions h4{margin:0 0 10px;font-size:13px}.risk-top-actions ol{margin:0;padding-left:20px;color:#42516a;font-size:13px;line-height:1.7}.risk-provider{color:#8290a3;font-size:11px;margin-top:4px}@media(max-width:520px){.risk-facts{grid-template-columns:1fr}.risk-card-head{align-items:center}}";
     document.head.appendChild(style);
   }
+  // Parse Groq's compact labeled invoice blocks as well as the legacy Markdown table format.
+  if (/INVOICE\\s*:/i.test(source)) {
+    container.replaceChildren();
+    const wrapper = document.createElement("div");
+    wrapper.className = "risk-review";
+    const introText = clean(source.split(/INVOICE\\s*:/i)[0]).replace(/[·\\s]+$/, "");
+    if (introText) {
+      const intro = document.createElement("p");
+      intro.className = "risk-review-intro";
+      intro.textContent = introText;
+      wrapper.appendChild(intro);
+    }
+    const sections = source.split(/(?=INVOICE\\s*:)/i).slice(1);
+    const fieldNames = ["INVOICE","CUSTOMER","AMOUNT","STATUS","DUE DATE","TIMING","RISK","EVIDENCE","NEXT ACTION"];
+    const invoiceSections = [];
+    let prioritiesText = "";
+    sections.forEach(sectionText => {
+      const stop = sectionText.search(/---\\s*Prioritized Merchant Actions|Prioritized Merchant Actions|AI provider:/i);
+      const section = stop >= 0 ? sectionText.slice(0, stop) : sectionText;
+      if (/^\\s*INV[-_]/i.test(section.replace(/^INVOICE\\s*:\\s*/i, ""))) invoiceSections.push(section);
+      if (stop >= 0) prioritiesText = sectionText.slice(stop).replace(/^---\\s*/,"");
+    });
+    invoiceSections.forEach(sectionText => {
+      const values = {};
+      fieldNames.forEach((field, index) => {
+        const nextFields = fieldNames.slice(index + 1).map(name => name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\    document.head.appendChild(style);
+  }
+  container.replaceChildren();
+  const wrapper = document.createElement("div");")).join("|");
+        const pattern = new RegExp("(?:^|;)\\\\s*" + field.replace(" ", "\\\\s+") + "\\\\s*:\\\\s*([\\\\s\\\\S]*?)(?=;\\\\s*(?:" + nextFields + ")\\\\s*:|$)", "i");
+        const match = sectionText.match(pattern);
+        if (match) values[field] = match[1].trim().replace(/[;\\s]+$/, "");
+      });
+      const card = document.createElement("article");
+      card.className = "risk-invoice-card";
+      const head = document.createElement("div"); head.className = "risk-card-head";
+      const title = document.createElement("div"); title.className = "risk-card-title";
+      title.textContent = (values.INVOICE || "Invoice") + " · " + (values.CUSTOMER || "Customer not recorded");
+      const risk = document.createElement("span");
+      const riskValue = (values.RISK || "LOW").toUpperCase();
+      risk.className = "risk-level " + (["HIGH","MEDIUM","LOW"].includes(riskValue) ? riskValue : "LOW");
+      risk.textContent = riskValue + " RISK";
+      head.append(title, risk);
+      const facts = document.createElement("div"); facts.className = "risk-facts";
+      [["Amount",values.AMOUNT],["Status",values.STATUS],["Due date",values["DUE DATE"]],["Timing",values.TIMING]].forEach(([label,value]) => {
+        const fact = document.createElement("div"); fact.className = "risk-fact";
+        const caption = document.createElement("span"); caption.textContent = label;
+        const strong = document.createElement("strong"); strong.textContent = value || "Not recorded";
+        fact.append(caption,strong); facts.appendChild(fact);
+      });
+      const evidence = document.createElement("p"); evidence.className = "risk-copy";
+      const evidenceLabel = document.createElement("b"); evidenceLabel.textContent = "Evidence for risk";
+      evidence.append(evidenceLabel, document.createTextNode(values.EVIDENCE || "No evidence supplied."));
+      const action = document.createElement("div"); action.className = "risk-action";
+      const actionLabel = document.createElement("b"); actionLabel.textContent = "Next practical action";
+      const actionText = document.createElement("span"); actionText.textContent = values["NEXT ACTION"] || "Review this invoice.";
+      action.append(actionLabel, actionText);
+      const paymentUrls = (values["NEXT ACTION"] || "").match(/https?:\\/\\/[^\\s]+/gi) || [];
+      paymentUrls.forEach(url => {
+        const link = document.createElement("a"); link.href = url.replace(/[.,)]+$/, ""); link.target = "_blank"; link.rel = "noopener noreferrer";
+        link.textContent = "Open secure payment link"; action.appendChild(link);
+      });
+      card.append(head, facts, evidence, action); wrapper.appendChild(card);
+    });
+    if (prioritiesText) {
+      const section = document.createElement("section"); section.className = "risk-top-actions";
+      const heading = document.createElement("h4"); heading.textContent = "Prioritized merchant actions";
+      const list = document.createElement("ol");
+      const items = prioritiesText.split(/\\n/).filter(line => /^\\s*[123]\\.\\s+/.test(line));
+      items.forEach(line => { const li = document.createElement("li"); li.textContent = line.replace(/^\\s*[123]\\.\\s+/,"").trim(); list.appendChild(li); });
+      if (list.children.length) { section.append(heading,list); wrapper.appendChild(section); }
+    }
+    const footer = document.createElement("div"); footer.className = "risk-provider"; footer.textContent = "AI provider: " + (provider || "Not reported");
+    wrapper.appendChild(footer);
+    container.appendChild(wrapper);
+    return;
+  }
   container.replaceChildren();
   const wrapper = document.createElement("div");
   wrapper.className = "risk-review";
