@@ -739,6 +739,8 @@ async function generateActionCenterBrief() {
 }
 
 function renderActionCenter() {
+  const briefButton = document.querySelector("#generateActionBriefButton");
+  if (briefButton) briefButton.onclick = generateActionCenterBrief;
   const container = document.querySelector("#actionCenterList");
   const count = document.querySelector("#actionCenterCount");
   if (!container) return;
