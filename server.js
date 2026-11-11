@@ -10,7 +10,6 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 
 const workspaceContext = new AsyncLocalStorage();
-const sessions = new Map();
 const loginAttempts = new Map();
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const SESSION_COOKIE = "smartpay_session";
@@ -29,12 +28,28 @@ function safeEqual(a, b) {
   const right = crypto.createHash("sha256").update(String(b || "")).digest();
   return crypto.timingSafeEqual(left, right);
 }
-function signSession(id) {
-  return crypto.createHmac("sha256", process.env.SESSION_SECRET).update(id).digest("base64url");
+function signSession(payload) {
+  return crypto.createHmac("sha256", process.env.SESSION_SECRET).update(payload).digest("base64url");
 }
 function parseSessionCookie(req) {
   const raw = String(req.headers.cookie || "").split(";").map(v => v.trim()).find(v => v.startsWith(SESSION_COOKIE + "="));
   return raw ? decodeURIComponent(raw.slice(SESSION_COOKIE.length + 1)) : "";
+}
+function getSessionFromRequest(req) {
+  if (!process.env.SESSION_SECRET) return null;
+  const value = parseSessionCookie(req);
+  const separator = value.lastIndexOf(".");
+  if (separator <= 0) return null;
+  const payload = value.slice(0, separator);
+  const signature = value.slice(separator + 1);
+  if (!signature || !safeEqual(signature, signSession(payload))) return null;
+  try {
+    const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (!["admin", "judge"].includes(session.role) || !Number.isFinite(session.expiresAt) || session.expiresAt <= Date.now()) return null;
+    return session;
+  } catch (_) {
+    return null;
+  }
 }
 function requireConfiguredAuth(res) {
   if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.JUDGE_PASSWORD) {
@@ -61,27 +76,19 @@ app.post("/api/login", (req, res) => {
   }
   loginAttempts.delete(ip);
   const role = adminMatch ? "admin" : "judge";
-  const id = crypto.randomBytes(32).toString("hex");
-  sessions.set(id, { role, expiresAt: Date.now() + SESSION_TTL_MS });
-  const value = id + "." + signSession(id);
+  const session = { role, expiresAt: Date.now() + SESSION_TTL_MS, nonce: crypto.randomBytes(24).toString("hex") };
+  const payload = Buffer.from(JSON.stringify(session)).toString("base64url");
+  const value = payload + "." + signSession(payload);
   res.setHeader("Set-Cookie", SESSION_COOKIE + "=" + encodeURIComponent(value) + "; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=" + Math.floor(SESSION_TTL_MS / 1000));
   return res.json({ authenticated: true, role });
 });
 app.get("/api/session", (req, res) => {
   if (!requireConfiguredAuth(res)) return;
-  const value = parseSessionCookie(req);
-  const [id, signature] = value.split(".");
-  const session = id && sessions.get(id);
-  if (!session || session.expiresAt <= Date.now() || !signature || !safeEqual(signature, signSession(id))) {
-    if (id) sessions.delete(id);
-    return res.status(401).json({ authenticated: false });
-  }
+  const session = getSessionFromRequest(req);
+  if (!session) return res.status(401).json({ authenticated: false });
   return res.json({ authenticated: true, role: session.role, expiresAt: session.expiresAt });
 });
-app.post("/api/logout", (req, res) => {
-  const value = parseSessionCookie(req);
-  const [id] = value.split(".");
-  if (id) sessions.delete(id);
+app.post("/api/logout", (_req, res) => {
   res.setHeader("Set-Cookie", SESSION_COOKIE + "=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0");
   return res.json({ loggedOut: true });
 });
@@ -89,13 +96,8 @@ app.use("/api", (req, res, next) => {
   const publicExact = new Set(["/login", "/logout", "/session", "/config", "/health"]);
   if (publicExact.has(req.path) || req.path.startsWith("/public-invoices/")) return next();
   if (!requireConfiguredAuth(res)) return;
-  const value = parseSessionCookie(req);
-  const [id, signature] = value.split(".");
-  const session = id && sessions.get(id);
-  if (!session || session.expiresAt <= Date.now() || !signature || !safeEqual(signature, signSession(id))) {
-    if (id) sessions.delete(id);
-    return res.status(401).json({ error: "Your session has expired. Please sign in again." });
-  }
+  const session = getSessionFromRequest(req);
+  if (!session) return res.status(401).json({ error: "Your session has expired. Please sign in again." });
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
     const origin = req.get("origin");
     if (origin) {
@@ -896,12 +898,7 @@ app.get("/api/summary", (_req, res) => res.json(buildBusinessSummary()));
 
 app.get("/pay/:token", (_req, res) => res.sendFile(path.join(__dirname, "public", "pay.html")));
 app.get("/", (req, res) => {
-  const value = parseSessionCookie(req);
-  const [id, signature] = value.split(".");
-  const session = id && sessions.get(id);
-  if (!session || session.expiresAt <= Date.now() || !signature || !safeEqual(signature, signSession(id))) {
-    return res.redirect("/login");
-  }
+  if (!getSessionFromRequest(req)) return res.redirect("/login");
   return res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 app.get("*", (req, res) => {
