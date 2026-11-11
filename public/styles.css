@@ -872,3 +872,8 @@ footer span{color:#7f9ab6}
 #invoiceRows tr:hover td { text-shadow: none !important; }
 .ai-robot-art { width: 30px; height: 30px; display:block; filter: drop-shadow(0 2px 7px rgba(45,205,235,.28)); }
 .ai-icon { display:grid; place-items:center; overflow:hidden; }
+
+/* Preserve each invoice status fill while the pointer is over the row. */
+#invoiceRows .invoice-row--overdue:hover td { background:rgba(117,39,53,.35)!important; }
+#invoiceRows .invoice-row--upcoming:hover td { background:rgba(116,84,29,.28)!important; }
+#invoiceRows .invoice-row--paid:hover td { background:rgba(24,100,75,.25)!important; }
