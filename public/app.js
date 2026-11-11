@@ -7,7 +7,7 @@ function escapeHTML(value) {
 
 function renderRiskReview(container, raw, provider) {
   const source = String(raw || "");
-  const parts = source.split("|").map(part => part.trim());
+  const parts = source.split("|").map(part => part.trim()).filter(Boolean);
   const headerIndex = parts.findIndex(part => part === "#");
   const clean = value => String(value || "").replace(/<([^>]+)>/g, "$1").replace(/\*\*/g, "").replace(/\`/g, "").trim();
   const styleId = "smartpay-risk-review-styles";
@@ -27,9 +27,8 @@ function renderRiskReview(container, raw, provider) {
     intro.textContent = introText;
     wrapper.appendChild(intro);
   }
-  let cursor = headerIndex >= 0 ? headerIndex + 1 : -1;
+  let cursor = headerIndex >= 0 ? headerIndex + 10 : -1;
   if (cursor >= 0) {
-    cursor += 10; // Skip the table headings.
     if (parts.slice(cursor, cursor + 10).every(cell => /^:?-{2,}:?$/.test(cell))) cursor += 10;
   }
   const invoices = [];
@@ -49,7 +48,7 @@ function renderRiskReview(container, raw, provider) {
     title.className = "risk-card-title";
     title.textContent = clean(row[1]) + " · " + clean(row[2]);
     const risk = document.createElement("span");
-    const riskValue = clean(row[8]).toUpperCase();
+    const riskValue = clean(row[7]).toUpperCase();
     risk.className = "risk-level " + (["HIGH","MEDIUM","LOW"].includes(riskValue) ? riskValue : "LOW");
     risk.textContent = riskValue + " RISK";
     head.append(title, risk);
@@ -63,14 +62,10 @@ function renderRiskReview(container, raw, provider) {
     });
     const evidence = document.createElement("p"); evidence.className = "risk-copy";
     const evidenceLabel = document.createElement("b"); evidenceLabel.textContent = "Evidence for risk";
-    evidence.append(evidenceLabel, document.createTextNode(clean(row[9])));
+    evidence.append(evidenceLabel, document.createTextNode(clean(row[8])));
     const action = document.createElement("div"); action.className = "risk-action";
     const actionLabel = document.createElement("b"); actionLabel.textContent = "Next practical action";
-    action.append(actionLabel, document.createTextNode(clean(row[10] || row[9] || "")));
-    // The table has ten columns; evidence and action occupy the final two cells.
-    evidence.replaceChildren(evidenceLabel, document.createTextNode(clean(row[8])));
-    action.replaceChildren(actionLabel);
-    const actionText = document.createElement("span"); actionText.textContent = clean(row[9]); action.appendChild(actionText);
+    const actionText = document.createElement("span"); actionText.textContent = clean(row[9]); action.append(actionLabel, actionText);
     const paymentUrls = clean(row[9]).match(/https:\/\/smartpay-ai-upps\.onrender\.com\/pay\/[a-f0-9]+/gi) || [];
     paymentUrls.forEach(url => {
       const link = document.createElement("a"); link.href = url; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = "Open secure payment link"; action.appendChild(link);
