@@ -587,6 +587,28 @@ app.put("/api/invoices/:id", async (req, res) => {
   }
 });
 
+app.delete("/api/invoices/:id", async (req, res) => {
+  try {
+    if (!pool || !databaseConnected) return res.status(503).json({ error: "Persistent database is unavailable. No invoice was deleted." });
+    const invoice = invoices.find(item => item.id === req.params.id);
+    if (!invoice) return res.status(404).json({ error: "Invoice not found." });
+    if (invoice.status === "PAID" || invoice.paypalOrderId) return res.status(409).json({ error: "Paid invoices or invoices linked to a PayPal order cannot be deleted." });
+    const table = workspaceTable("invoices");
+    const paymentTable = workspaceTable("payments");
+    const deleted = await pool.query(
+      "DELETE FROM " + table + " i WHERE i.id = $1 AND i.status <> 'PAID' AND i.paypal_order_id IS NULL AND NOT EXISTS (SELECT 1 FROM " + paymentTable + " p WHERE p.invoice_id = i.id) RETURNING i.id",
+      [invoice.id]
+    );
+    if (!deleted.rowCount) return res.status(409).json({ error: "This invoice has payment history or is no longer eligible for deletion." });
+    const index = invoices.findIndex(item => item.id === invoice.id);
+    if (index >= 0) invoices.splice(index, 1);
+    console.log("Deleted unpaid invoice " + invoice.id + " from the active workspace.");
+    return res.json({ deleted: true, invoiceId: invoice.id });
+  } catch (error) {
+    console.error("Invoice deletion failed:", error.message);
+    return res.status(500).json({ error: "Could not delete the invoice. Please try again." });
+  }
+});
 async function createPayPalOrderForInvoice(invoice, applicationContext = null) {
   const token = await getPayPalAccessToken();
   const response = await fetch(PAYPAL_BASE + "/v2/checkout/orders", {
