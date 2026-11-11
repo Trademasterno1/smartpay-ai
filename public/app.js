@@ -5,6 +5,27 @@ function escapeHTML(value) {
   });
 }
 
+function formatRiskReviewText(raw) {
+  const lines = String(raw || '').split(/\r?\n/);
+  const start = lines.findIndex(line => /^\s*\|.*\|\s*$/.test(line));
+  if (start < 0) return String(raw || '');
+  let end = start;
+  while (end < lines.length && /^\s*\|.*\|\s*$/.test(lines[end])) end++;
+  const rows = lines.slice(start, end).filter(line => !/^\s*\|?\s*:?-{2,}/.test(line)).map(line => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim()));
+  if (rows.length < 2) return String(raw || '');
+  const headers = rows[0];
+  const get = (row, key) => { const i = headers.findIndex(h => h.toLowerCase().includes(key)); return i < 0 ? '—' : (row[i] || '—').replace(/\*\*/g, ''); };
+  const cards = rows.slice(1).map((row, i) => [
+    (i + 1) + '. ' + get(row, 'invoice id') + ' — ' + get(row, 'customer'),
+    'Amount: ' + get(row, 'amount'),
+    'Risk: ' + get(row, 'risk level') + ' | Status: ' + get(row, 'status'),
+    'Due: ' + get(row, 'due date') + ' | ' + get(row, 'days past'),
+    'Evidence: ' + get(row, 'evidence'),
+    'Next action: ' + get(row, 'next collection action')
+  ].join('\n')).join('\n\n');
+  return lines.slice(0, start).filter(x => x.trim()).join('\n') + '\n\n' + cards + '\n\n' + lines.slice(end).join('\n');
+}
+
 const $ = (selector) => document.querySelector(selector);
 let invoices = [];
 let paymentHistory = [];
@@ -263,7 +284,7 @@ function renderCashFlowForecast() {
         outstanding.every(invoice => answer.includes(String(invoice.id))) &&
         answer.length > 250;
       if (completeAIReview) {
-        aiResult.textContent = answer + (data.provider ? "\n\nAI provider: " + data.provider : "");
+        aiResult.textContent = formatRiskReviewText(answer) + (data.provider ? "\n\nAI provider: " + data.provider : "");
       } else {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
