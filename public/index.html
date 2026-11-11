@@ -91,7 +91,8 @@
               <div class="merchant-profile-actions"><button type="submit" id="saveMerchantProfileButton">Save merchant details</button><span id="merchantProfileMessage" role="status" aria-live="polite">Required before issuing invoices in the merchant’s name.</span></div>
             </form>
           </section>
-          <form id="createInvoiceForm" class="create-invoice-form">
+          <button type="button" class="create-invoice-toggle" id="showCreateInvoiceButton">+ Create invoice</button>
+          <form id="createInvoiceForm" class="create-invoice-form" hidden>
             <input type="hidden" name="invoiceId" id="editingInvoiceId">
             <div class="create-invoice-fields">
               <label>Customer name<input name="customer" maxlength="120" placeholder="e.g. Acme Studio" required></label>
@@ -100,13 +101,18 @@
             <div class="line-items-editor">
               <div class="line-items-heading"><strong>Invoice items</strong><button type="button" id="addInvoiceItemButton" class="secondary-button">+ Add item</button></div>
               <div id="invoiceItemRows"></div>
-              <div class="line-items-total">Calculated total <strong id="invoiceItemsTotal">$0.00</strong></div>
+              <div class="line-items-total">
+                <span>Subtotal <strong id="invoiceItemsTotal">$0.00</strong></span>
+                <span>Tax amount <strong id="invoiceTaxAmount">$0.00</strong></span>
+                <span class="invoice-grand-total">Total incl. tax <strong id="invoiceGrandTotal">$0.00</strong></span>
+              </div>
             </div>
             <div class="create-invoice-fields invoice-final-fields">
+              <label>Tax % (optional)<input name="taxRate" id="invoiceTaxRate" type="number" min="0" max="100" step="0.01" value="0" placeholder="0"></label>
               <label>Total (USD)<input name="amount" id="invoiceAmount" type="number" min="0.01" max="99999999.99" step="0.01" placeholder="0.00" readonly required></label>
               <label>Due date<input name="dueDate" type="date" required></label>
             </div>
-            <div class="create-invoice-actions"><button type="submit" id="createInvoiceButton">Create invoice</button><button type="button" id="cancelEditButton" class="secondary-button" hidden>Cancel edit</button><span id="createInvoiceMessage" role="status" aria-live="polite">New invoices are saved to Neon as UNPAID. No payment is taken.</span></div>
+            <div class="create-invoice-actions"><button type="submit" id="createInvoiceButton">Create invoice</button><button type="button" id="cancelEditButton" class="secondary-button" hidden>Cancel</button><span id="createInvoiceMessage" role="status" aria-live="polite">New invoices are saved to Neon as UNPAID. No payment is taken.</span></div>
           </form>
           <div class="invoice-tools"><button type="button" class="export-button" id="exportInvoicesButton">Export invoices CSV</button><input id="invoiceSearch" type="search" placeholder="Search invoice, customer or email" aria-label="Search invoices"><select id="invoiceStatusFilter" aria-label="Filter invoices by status"><option value="ALL">All statuses</option><option value="PAID">Paid</option><option value="UNPAID">Unpaid</option><option value="OVERDUE">Overdue</option></select></div>
           <div class="table-wrap"><table><thead><tr><th>INVOICE / CUSTOMER</th><th>DUE DATE</th><th>AMOUNT</th><th>STATUS</th><th></th></tr></thead><tbody id="invoiceRows"></tbody></table></div>
