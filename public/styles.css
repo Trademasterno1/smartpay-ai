@@ -954,3 +954,51 @@ footer span{color:#7f9ab6}
 .assistant-mentioned-action-row button {
   color:#eaf7ff!important;
 }
+
+
+/* Improve Action Center labels and AI Cash Flow Forecast contrast in the dark theme. */
+.sidebar .nav-item[href="#actionCenter"] {
+  color:#eaf6ff!important;
+  background:rgba(45,132,190,.12)!important;
+  border-color:rgba(85,190,225,.2)!important;
+}
+.sidebar .nav-item[href="#actionCenter"] span { color:#65d9ef!important; }
+.action-center-panel .panel-heading h2,
+#actionCenterTitle { color:#f1f8ff!important; }
+.action-center-panel .panel-heading .eyebrow { color:#65d9ef!important; }
+.action-center-panel .action-center-intro { color:#b6cce0!important; }
+.action-center-panel .action-center-subtitle { color:#e2f1ff!important; }
+.action-center-panel .action-center-group-empty,
+.action-center-panel .action-center-empty { color:#c0d3e5!important; }
+.action-center-panel .action-center-paid-row {
+  background:rgba(7,25,42,.86)!important;
+  border-color:rgba(105,173,211,.22)!important;
+  color:#d9eafa!important;
+}
+.action-center-panel .action-center-paid-row strong,
+.action-center-panel .action-center-paid-row span { color:#e9f5ff!important; }
+
+/* Forecast cards must never fall back to pale surfaces with pale text. */
+.cash-flow-forecast-panel .forecast-currency-group .forecast-stats .stat-card {
+  background:linear-gradient(145deg,rgba(15,40,63,.99),rgba(8,25,43,.99))!important;
+  border:1px solid rgba(112,166,207,.25)!important;
+  color:#e8f4ff!important;
+}
+.cash-flow-forecast-panel .forecast-stats .stat-top {
+  color:#c0d5e8!important;
+}
+.cash-flow-forecast-panel .forecast-stats .stat-value {
+  color:#f4f9ff!important;
+}
+.cash-flow-forecast-panel .forecast-stats .stat-note {
+  color:#a9bfd4!important;
+}
+.cash-flow-forecast-panel .forecast-stats .alert-card .stat-value {
+  color:#ff9ba8!important;
+}
+.cash-flow-forecast-panel .forecast-total-row,
+.cash-flow-forecast-panel .forecast-total-row span { color:#c5d9eb!important; }
+.cash-flow-forecast-panel .forecast-total-row strong { color:#f3f8ff!important; }
+.cash-flow-forecast-panel .forecast-currency-group>.eyebrow { color:#73d9ed!important; }
+.cash-flow-forecast-panel .forecast-legend { color:#c2d6e8!important; }
+.cash-flow-forecast-panel .monthly-chart-footnote { color:#a9bfd4!important; }
