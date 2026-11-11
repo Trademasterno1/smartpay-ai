@@ -15,6 +15,8 @@ const pool = process.env.DATABASE_URL
   : null;
 let databaseConnected = false;
 let merchantProfile = { businessName: "", address: "", email: "", phone: "", taxNumber: "" };
+let judgeMerchantProfile = { businessName: "SmartPay Demo Merchant", address: "Demo workspace · no real merchant details", email: "demo@smartpay.example", phone: "", taxNumber: "" };
+const judgeInvoices = [];
 const PAYPAL_BASE = process.env.PAYPAL_ENV === "live"
   ? "https://api-m.paypal.com"
   : "https://api-m.sandbox.paypal.com";
@@ -65,6 +67,71 @@ async function initializeDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Dedicated judge workspace tables. Additive only: admin invoices and payment history remain untouched.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS judge_invoices (
+      id TEXT PRIMARY KEY,
+      customer TEXT NOT NULL,
+      email TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      currency TEXT NOT NULL,
+      status TEXT NOT NULL,
+      due_date DATE NOT NULL,
+      paypal_order_id TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      line_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      merchant_profile JSONB,
+      payment_token TEXT
+    )
+  `);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS judge_invoices_payment_token_unique ON judge_invoices(payment_token) WHERE payment_token IS NOT NULL`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS judge_merchant_settings (
+    id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    profile JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS judge_payment_events (
+      id BIGSERIAL PRIMARY KEY,
+      invoice_id TEXT NOT NULL REFERENCES judge_invoices(id),
+      paypal_order_id TEXT,
+      event_type TEXT NOT NULL,
+      amount NUMERIC(12,2),
+      currency TEXT,
+      details JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  const judgeProfileResult = await pool.query(`SELECT profile FROM judge_merchant_settings WHERE id = 1`);
+  if (judgeProfileResult.rowCount) judgeMerchantProfile = { ...judgeMerchantProfile, ...judgeProfileResult.rows[0].profile };
+  else await pool.query(
+    `INSERT INTO judge_merchant_settings (id, profile) VALUES (1, $1::jsonb) ON CONFLICT (id) DO NOTHING`,
+    [JSON.stringify(judgeMerchantProfile)]
+  );
+  const judgeSeed = [
+    { id: "JUDGE-INV-2001", customer: "Atlas Design Demo", email: "accounts@atlas-demo.example", amount: "125.50", currency: "USD", status: "UNPAID", dueDate: "2026-11-04", lineItems: [{ description: "Brand strategy package", quantity: 1, unitPrice: "125.50", lineTotal: "125.50" }] },
+    { id: "JUDGE-INV-2002", customer: "BrightPath Learning Demo", email: "finance@brightpath-demo.example", amount: "920.00", currency: "USD", status: "UNPAID", dueDate: "2026-11-15", lineItems: [{ description: "Learning platform services", quantity: 1, unitPrice: "920.00", lineTotal: "920.00" }] },
+    { id: "JUDGE-INV-2003", customer: "Northstar Studio Demo", email: "billing@northstar-demo.example", amount: "249.00", currency: "USD", status: "UNPAID", dueDate: "2026-11-26", lineItems: [{ description: "Creative production", quantity: 1, unitPrice: "249.00", lineTotal: "249.00" }] }
+  ];
+  for (const sample of judgeSeed) {
+    await pool.query(
+      `INSERT INTO judge_invoices (id, customer, email, amount, currency, status, due_date, line_items, merchant_profile, payment_token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10)
+       ON CONFLICT (id) DO NOTHING`,
+      [sample.id, sample.customer, sample.email, sample.amount, sample.currency, sample.status, sample.dueDate,
+       JSON.stringify(sample.lineItems), JSON.stringify(judgeMerchantProfile), crypto.randomBytes(32).toString("hex")]
+    );
+  }
+  const judgeResult = await pool.query(
+    `SELECT id, customer, email, amount::text, currency, status,
+            to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
+            line_items AS "lineItems", merchant_profile AS "merchantProfile",
+            payment_token AS "paymentToken"
+     FROM judge_invoices ORDER BY due_date, id`
+  );
+  judgeInvoices.splice(0, judgeInvoices.length, ...judgeResult.rows);
+  console.log("Judge demo workspace ready; loaded " + judgeInvoices.length + " isolated demo invoices.");
   for (const invoice of invoices) {
     await pool.query(
       `INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id)
