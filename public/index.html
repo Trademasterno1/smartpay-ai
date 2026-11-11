@@ -55,6 +55,20 @@
       <section class="content-grid">
         <article class="panel invoice-panel" id="invoices">
           <div class="panel-heading"><div><div class="eyebrow">REVENUE OPERATIONS</div><h2>Recent invoices</h2></div><span class="tiny-tag">DEMO DATA</span></div>
+          <section class="merchant-profile-panel" aria-labelledby="merchantProfileTitle">
+            <div class="merchant-profile-heading"><div><div class="eyebrow">INVOICE ISSUER</div><h3 id="merchantProfileTitle">Merchant details</h3></div><span class="tiny-tag">SAVED PROFILE</span></div>
+            <p class="merchant-profile-help">These details appear as the seller on new invoices and PDFs. Each new invoice keeps its own copy.</p>
+            <form id="merchantProfileForm">
+              <div class="merchant-profile-grid">
+                <label>Business / merchant name<input name="businessName" maxlength="120" placeholder="e.g. ABC Medical Center" required></label>
+                <label>Business email<input name="email" type="email" maxlength="254" placeholder="accounts@business.com"></label>
+                <label>Phone<input name="phone" maxlength="40" placeholder="+971..."></label>
+                <label>Tax registration number (TRN)<input name="taxNumber" maxlength="40" placeholder="Optional"></label>
+                <label class="merchant-address-field">Business address<textarea name="address" maxlength="300" rows="2" placeholder="Street, area, city, country"></textarea></label>
+              </div>
+              <div class="merchant-profile-actions"><button type="submit" id="saveMerchantProfileButton">Save merchant details</button><span id="merchantProfileMessage" role="status" aria-live="polite">Required before issuing invoices in the merchant’s name.</span></div>
+            </form>
+          </section>
           <form id="createInvoiceForm" class="create-invoice-form">
             <input type="hidden" name="invoiceId" id="editingInvoiceId">
             <div class="create-invoice-fields">
