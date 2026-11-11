@@ -521,21 +521,42 @@ async function refreshMonthlyAnalytics() {
       container.innerHTML = '<p class="chart-empty">No monthly data is available yet.</p>';
       return;
     }
-    container.style.gridTemplateColumns = "repeat(" + data.length + ", minmax(0, 1fr))";
-    const maxValue = Math.max(1, ...data.flatMap(item => [Number(item.invoicedAmount || 0), Number(item.collectedAmount || 0)]));
-    container.innerHTML = data.map(item => {
-      const invoiced = Number(item.invoicedAmount || 0);
-      const collected = Number(item.collectedAmount || 0);
-      const invoiceHeight = invoiced > 0 ? Math.max(3, (invoiced / maxValue) * 100) : 0;
-      const collectedHeight = collected > 0 ? Math.max(3, (collected / maxValue) * 100) : 0;
-      return `<div class="month-column">
-        <div class="month-bars">
-          <div class="month-bar-slot"><span class="month-bar invoice-bar" style="height:${invoiceHeight}%" title="Invoices: ${escapeHTML(money(invoiced, "USD"))}"></span></div>
-          <div class="month-bar-slot"><span class="month-bar collected-bar" style="height:${collectedHeight}%" title="Captured: ${escapeHTML(money(collected, "USD"))}"></span></div>
-        </div>
-        <span class="month-label">${escapeHTML(item.label)}</span>
-        <span class="month-values">${money(invoiced, "USD")} / ${money(collected, "USD")}</span>
-      </div>`;
+
+    // Render each ISO currency independently so unlike currencies are never added
+    // together or compared on a shared vertical scale.
+    const currencyGroups = new Map();
+    data.forEach(item => {
+      const currency = String(item.currency || "USD").toUpperCase();
+      if (!currencyGroups.has(currency)) currencyGroups.set(currency, []);
+      currencyGroups.get(currency).push(item);
+    });
+    const formatChartMoney = (amount, currency) => {
+      try { return money(amount, currency); }
+      catch (_error) { return Number(amount || 0).toFixed(2) + " " + currency; }
+    };
+    container.style.gridTemplateColumns = "minmax(0, 1fr)";
+    container.innerHTML = Array.from(currencyGroups.entries()).map(([currency, items]) => {
+      const maxValue = Math.max(1, ...items.flatMap(item => [
+        Number(item.invoicedAmount || 0), Number(item.collectedAmount || 0)
+      ]));
+      const monthsMarkup = items.map(item => {
+        const invoiced = Number(item.invoicedAmount || 0);
+        const collected = Number(item.collectedAmount || 0);
+        const invoiceHeight = invoiced > 0 ? Math.max(3, (invoiced / maxValue) * 100) : 0;
+        const collectedHeight = collected > 0 ? Math.max(3, (collected / maxValue) * 100) : 0;
+        return `<div class="month-column">
+          <div class="month-bars">
+            <div class="month-bar-slot"><span class="month-bar invoice-bar" style="height:${invoiceHeight}%" title="Invoices: ${escapeHTML(formatChartMoney(invoiced, currency))}"></span></div>
+            <div class="month-bar-slot"><span class="month-bar collected-bar" style="height:${collectedHeight}%" title="Captured: ${escapeHTML(formatChartMoney(collected, currency))}"></span></div>
+          </div>
+          <span class="month-label">${escapeHTML(item.label)}</span>
+          <span class="month-values">${escapeHTML(formatChartMoney(invoiced, currency))} / ${escapeHTML(formatChartMoney(collected, currency))}</span>
+        </div>`;
+      }).join("");
+      return `<section class="monthly-currency-group" aria-label="Monthly performance in ${escapeHTML(currency)}">
+        <div class="monthly-currency-heading">${escapeHTML(currency)}</div>
+        <div class="monthly-chart-months" data-months="${months}">${monthsMarkup}</div>
+      </section>`;
     }).join("");
   } catch (error) {
     console.error("Monthly analytics loading failed:", error);
