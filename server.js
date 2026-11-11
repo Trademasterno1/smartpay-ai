@@ -47,6 +47,8 @@ async function initializeDatabase() {
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS line_items JSONB NOT NULL DEFAULT '[]'::jsonb`);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS merchant_profile JSONB`);
+  await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_token TEXT`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS invoices_payment_token_unique ON invoices(payment_token) WHERE payment_token IS NOT NULL`);
   await pool.query(`CREATE TABLE IF NOT EXISTS merchant_settings (id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1), profile JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   const merchantResult = await pool.query(`SELECT profile FROM merchant_settings WHERE id = 1`);
   if (merchantResult.rowCount) merchantProfile = { ...merchantProfile, ...merchantResult.rows[0].profile };
@@ -69,10 +71,15 @@ async function initializeDatabase() {
       [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId]
     );
   }
+  const invoicesWithoutTokens = await pool.query(`SELECT id FROM invoices WHERE payment_token IS NULL`);
+  for (const row of invoicesWithoutTokens.rows) {
+    await pool.query(`UPDATE invoices SET payment_token=$2 WHERE id=$1 AND payment_token IS NULL`, [row.id, crypto.randomBytes(32).toString("hex")]);
+  }
   const result = await pool.query(
     `SELECT id, customer, email, amount::text, currency, status,
             to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
-            line_items AS "lineItems", merchant_profile AS "merchantProfile"
+            line_items AS "lineItems", merchant_profile AS "merchantProfile",
+            payment_token AS "paymentToken"
      FROM invoices ORDER BY due_date, id`
   );
   invoices.splice(0, invoices.length, ...result.rows);
@@ -83,12 +90,13 @@ async function initializeDatabase() {
 async function persistInvoice(invoice) {
   if (!pool) return;
   await pool.query(
-    `INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+    `INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, payment_token, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
      ON CONFLICT (id) DO UPDATE SET customer=EXCLUDED.customer, email=EXCLUDED.email,
        amount=EXCLUDED.amount, currency=EXCLUDED.currency, status=EXCLUDED.status,
-       due_date=EXCLUDED.due_date, paypal_order_id=EXCLUDED.paypal_order_id, updated_at=NOW()`,
-    [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId]
+       due_date=EXCLUDED.due_date, paypal_order_id=EXCLUDED.paypal_order_id,
+       payment_token=COALESCE(invoices.payment_token, EXCLUDED.payment_token), updated_at=NOW()`,
+    [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId, invoice.paymentToken || null]
   );
 }
 
@@ -334,11 +342,12 @@ app.post("/api/invoices", async (req, res) => {
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const invoice = {
       id: "INV-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomBytes(3).toString("hex").toUpperCase(),
-      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...merchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null
+      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...merchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null,
+      paymentToken: crypto.randomBytes(32).toString("hex")
     };
     await pool.query(
-      "INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb)",
-      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems), JSON.stringify(invoice.merchantProfile)]
+      "INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile, payment_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)",
+      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems), JSON.stringify(invoice.merchantProfile), invoice.paymentToken]
     );
     invoices.push(invoice);
     console.log("Created invoice " + invoice.id + " and saved it to PostgreSQL.");
@@ -399,7 +408,8 @@ async function createPayPalOrderForInvoice(invoice, applicationContext = null) {
         reference_id: invoice.id,
         description: "SmartPay AI invoice " + invoice.id,
         amount: { currency_code: invoice.currency, value: invoice.amount }
-      }]
+      }],
+      ...(applicationContext ? { application_context: applicationContext } : {})
     })
   });
   const data = await response.json().catch(() => ({}));
@@ -419,6 +429,64 @@ async function createPayPalOrderForInvoice(invoice, applicationContext = null) {
   return { id: data.id, approvalUrl: approvalHref };
 }
 
+
+app.get("/api/public-invoices/:token", (req, res) => {
+  const invoice = invoices.find(item => item.paymentToken && item.paymentToken === req.params.token);
+  if (!invoice) return res.status(404).json({ error: "This invoice link is invalid or has expired." });
+  return res.json({
+    id: invoice.id, customer: invoice.customer, amount: invoice.amount, currency: invoice.currency,
+    status: invoice.status, dueDate: invoice.dueDate, lineItems: invoice.lineItems || [],
+    merchantProfile: invoice.merchantProfile || {}
+  });
+});
+
+app.post("/api/public-invoices/:token/create-order", async (req, res) => {
+  try {
+    const invoice = invoices.find(item => item.paymentToken && item.paymentToken === req.params.token);
+    if (!invoice) return res.status(404).json({ error: "This invoice link is invalid or has expired." });
+    if (invoice.status === "PAID") return res.status(409).json({ error: "This invoice has already been paid." });
+    const publicUrl = "https://smartpay-ai-upps.onrender.com/pay/" + encodeURIComponent(invoice.paymentToken);
+    const order = await createPayPalOrderForInvoice(invoice, {
+      return_url: publicUrl + "?payment=success",
+      cancel_url: publicUrl + "?payment=cancelled",
+      user_action: "PAY_NOW"
+    });
+    return res.json({ approvalUrl: order.approvalUrl, orderId: order.id });
+  } catch (error) {
+    return res.status(error.status || 500).json({ error: error.message || "Could not start PayPal checkout." });
+  }
+});
+
+app.post("/api/public-invoices/:token/capture", async (req, res) => {
+  try {
+    const invoice = invoices.find(item => item.paymentToken && item.paymentToken === req.params.token);
+    if (!invoice) return res.status(404).json({ error: "This invoice link is invalid or has expired." });
+    const orderId = String(req.body.orderId || "");
+    if (!orderId || invoice.paypalOrderId !== orderId) return res.status(403).json({ error: "This payment does not belong to this invoice." });
+    if (invoice.status === "PAID") return res.json({ status: "COMPLETED", invoiceId: invoice.id, alreadyPaid: true });
+    const token = await getPayPalAccessToken();
+    const response = await fetch(PAYPAL_BASE + "/v2/checkout/orders/" + encodeURIComponent(orderId) + "/capture", {
+      method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return res.status(response.status).json({ error: data.message || "Payment capture failed." });
+    const purchaseUnit = data.purchase_units?.[0];
+    const capture = purchaseUnit?.payments?.captures?.[0];
+    const capturedAmount = capture?.amount;
+    const matchesInvoice = purchaseUnit?.reference_id === invoice.id &&
+      capturedAmount?.currency_code === invoice.currency && capturedAmount?.value === invoice.amount;
+    if (data.status !== "COMPLETED" || capture?.status !== "COMPLETED" || !matchesInvoice) {
+      return res.status(409).json({ error: "PayPal has not confirmed a completed payment matching this invoice." });
+    }
+    invoice.status = "PAID";
+    await persistInvoice(invoice);
+    await recordPaymentEvent(invoice, orderId, capture);
+    return res.json({ status: "COMPLETED", invoiceId: invoice.id, amount: capturedAmount.value, currency: capturedAmount.currency_code });
+  } catch (error) {
+    console.error("Public PayPal capture failed:", error.message);
+    return res.status(500).json({ error: "Unable to verify this payment. Please contact the merchant." });
+  }
+});
 
 app.post("/api/paypal/create-order", async (req, res) => {
   try {
@@ -568,6 +636,7 @@ function buildBusinessSummary() {
 
 app.get("/api/summary", (_req, res) => res.json(buildBusinessSummary()));
 
+app.get("/pay/:token", (_req, res) => res.sendFile(path.join(__dirname, "public", "pay.html")));
 app.get("*", (_req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 initializeDatabase()
