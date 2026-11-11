@@ -1005,7 +1005,7 @@ function renderRecoveryInvoices() {
             return;
           }
           if (webmailSelect.value === "zoho") {
-            const copyText = "To: " + recipientInput.value.trim() + "\\nSubject: " + subjectInput.value.trim() + "\\n\\n" + messageArea.value;
+            const copyText = "To: " + recipientInput.value.trim() + "\nSubject: " + subjectInput.value.trim() + "\n\n" + messageArea.value;
             navigator.clipboard?.writeText(copyText).catch(() => {});
             helper.textContent = "Opening Zoho Mail. The draft is also available with Copy email if it is not prefilled.";
           } else {
