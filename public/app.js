@@ -17,6 +17,10 @@ function renderRiskReview(container, raw, provider) {
   container.replaceChildren();
   const wrapper = document.createElement("div");
   wrapper.className = "risk-review";
+  const notice = document.createElement("div");
+  notice.className = "ai-action-disclaimer";
+  notice.textContent = "AI recommendations only · No reminders or messages have been scheduled or sent, and no calls or payments have been made.";
+  wrapper.appendChild(notice);
   const fields = ["INVOICE", "CUSTOMER", "AMOUNT", "STATUS", "DUE DATE", "TIMING", "RISK", "EVIDENCE", "NEXT ACTION"];
   const fieldPattern = fields.map(name => name.replace(/\s+/g, "\\s+")).join("|");
   const sections = source.split(/(?=INVOICE\s*:)/i).slice(1);
@@ -1032,6 +1036,10 @@ async function loadPayPalSdk() {
 function renderAssistantAnswer(container, answer, provider) {
   container.replaceChildren();
   container.classList.add("ai-response-rich");
+  const notice = document.createElement("div");
+  notice.className = "ai-action-disclaimer";
+  notice.textContent = "AI guidance only · SmartPay has not sent messages, scheduled reminders, made calls, or taken payments.";
+  container.appendChild(notice);
   const lines = String(answer || "").replace(/\r\n?/g, "\n").trim().split("\n");
   let list = null, listType = "", codeLines = null;
   const flushList = () => { if (list) container.appendChild(list); list = null; listType = ""; };
