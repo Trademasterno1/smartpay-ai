@@ -941,15 +941,37 @@ function renderRecoveryInvoices() {
         const sendButton = document.createElement("button");
         sendButton.type = "button";
         sendButton.className = "recovery-send-email";
-        sendButton.textContent = "Open email app to send";
-        sendButton.addEventListener("click", () => {
-          const recipient = String(data.email || "").trim();
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
-            alert("This invoice does not have a valid customer email address.");
+        sendButton.textContent = "Send email";
+        sendButton.addEventListener("click", async () => {
+          if (sendButton.disabled) return;
+          const subject = subjectInput.value.trim();
+          const message = messageArea.value.trim();
+          if (!subject || !message) {
+            helper.textContent = "Enter both an email subject and message before sending.";
+            helper.className = "recovery-email-helper error-message";
             return;
           }
-          const mailto = "mailto:" + encodeURIComponent(recipient) + "?subject=" + encodeURIComponent(subjectInput.value.trim()) + "&body=" + encodeURIComponent(messageArea.value);
-          window.location.href = mailto;
+          sendButton.disabled = true;
+          sendButton.textContent = "Sending…";
+          helper.textContent = "Sending securely through SmartPay AI…";
+          helper.className = "recovery-email-helper";
+          try {
+            const response = await fetch("/api/recovery/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Accept": "application/json" },
+              body: JSON.stringify({ invoiceId: data.invoiceId, subject, message })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.sent) throw new Error(result.error || "The email was not sent.");
+            sendButton.textContent = "Email sent";
+            helper.textContent = "Email accepted by the provider for " + result.recipient + ".";
+            helper.className = "recovery-email-helper success-message";
+          } catch (error) {
+            helper.textContent = error.message || "The email could not be sent. Please try again.";
+            helper.className = "recovery-email-helper error-message";
+            sendButton.disabled = false;
+            sendButton.textContent = "Retry sending";
+          }
         });
         const copyButton = document.createElement("button");
         copyButton.type = "button";
@@ -968,7 +990,7 @@ function renderRecoveryInvoices() {
         actionsRow.append(sendButton, copyButton);
         const helper = document.createElement("p");
         helper.className = "recovery-email-helper";
-        helper.textContent = "Your email app will open with the recipient, subject and edited message. Review it there and press Send.";
+        helper.textContent = "The edited message will be sent to the customer from your configured SmartPay email service.";
         editor.append(recipientLabel, subjectLabel, messageLabel, messageArea, paymentLink, actionsRow, helper);
         draft.appendChild(editor);
         button.textContent = "Regenerate email";
