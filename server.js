@@ -451,28 +451,59 @@ app.get("/api/analytics/monthly", async (req, res) => {
            interval '1 month'
          ) AS month_start
        ),
+       date_bounds AS (
+         SELECT MIN(month_start) AS first_month,
+                MAX(month_start) + interval '1 month' AS after_last_month
+         FROM months
+       ),
+       currencies AS (
+         SELECT DISTINCT UPPER(currency) AS currency
+         FROM ${workspaceTable("invoices")}, date_bounds
+         WHERE created_at >= date_bounds.first_month
+           AND created_at < date_bounds.after_last_month
+         UNION
+         SELECT DISTINCT UPPER(currency) AS currency
+         FROM ${workspaceTable("payments")}, date_bounds
+         WHERE event_type = 'PAYMENT_CAPTURED'
+           AND created_at >= date_bounds.first_month
+           AND created_at < date_bounds.after_last_month
+       ),
        invoice_totals AS (
          SELECT date_trunc('month', created_at) AS month_start,
-                SUM(amount)::numeric(14,2)::text AS amount, COUNT(*)::int AS invoice_count
+                UPPER(currency) AS currency,
+                SUM(amount)::numeric(14,2)::text AS amount,
+                COUNT(*)::int AS invoice_count
          FROM ${workspaceTable("invoices")}
-         GROUP BY 1
+         WHERE created_at >= (SELECT first_month FROM date_bounds)
+           AND created_at < (SELECT after_last_month FROM date_bounds)
+         GROUP BY 1, 2
        ),
        payment_totals AS (
          SELECT date_trunc('month', created_at) AS month_start,
-                SUM(amount)::numeric(14,2)::text AS amount, COUNT(*)::int AS payment_count
+                UPPER(currency) AS currency,
+                SUM(amount)::numeric(14,2)::text AS amount,
+                COUNT(*)::int AS payment_count
          FROM ${workspaceTable("payments")}
          WHERE event_type = 'PAYMENT_CAPTURED'
-         GROUP BY 1
+           AND created_at >= (SELECT first_month FROM date_bounds)
+           AND created_at < (SELECT after_last_month FROM date_bounds)
+         GROUP BY 1, 2
        )
        SELECT to_char(months.month_start, 'Mon YY') AS label,
+              currencies.currency AS currency,
               COALESCE(invoice_totals.amount, '0.00') AS "invoicedAmount",
               COALESCE(payment_totals.amount, '0.00') AS "collectedAmount",
               COALESCE(invoice_totals.invoice_count, 0) AS "invoiceCount",
               COALESCE(payment_totals.payment_count, 0) AS "paymentCount"
        FROM months
-       LEFT JOIN invoice_totals USING (month_start)
-       LEFT JOIN payment_totals USING (month_start)
-       ORDER BY months.month_start`,
+       CROSS JOIN currencies
+       LEFT JOIN invoice_totals
+         ON invoice_totals.month_start = months.month_start
+        AND invoice_totals.currency = currencies.currency
+       LEFT JOIN payment_totals
+         ON payment_totals.month_start = months.month_start
+        AND payment_totals.currency = currencies.currency
+       ORDER BY currencies.currency, months.month_start`,
       [months]
     );
     return res.json(result.rows);
