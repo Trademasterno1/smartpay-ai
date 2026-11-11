@@ -1006,6 +1006,61 @@ async function loadPayPalSdk() {
   document.head.appendChild(script);
 }
 
+function renderAssistantAnswer(container, answer, provider) {
+  container.replaceChildren();
+  container.classList.add("ai-response-rich");
+  const lines = String(answer || "").replace(/\r\n?/g, "\n").trim().split("\n");
+  let list = null, listType = "";
+  const flushList = () => { if (list) container.appendChild(list); list = null; listType = ""; };
+  const appendInline = (parent, value) => {
+    const pattern = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|https?:\/\/[^\s<]+)/g;
+    let cursor = 0;
+    for (const match of value.matchAll(pattern)) {
+      if (match.index > cursor) parent.appendChild(document.createTextNode(value.slice(cursor, match.index)));
+      const token = match[0];
+      let node;
+      if (token.startsWith("**") || token.startsWith("__")) {
+        node = document.createElement("strong"); node.textContent = token.slice(2, -2);
+      } else if (token.startsWith("*")) {
+        node = document.createElement("em"); node.textContent = token.slice(1, -1);
+      } else {
+        const safeUrl = token.replace(/[),.;]+$/, "");
+        node = document.createElement("a"); node.href = safeUrl; node.target = "_blank";
+        node.rel = "noopener noreferrer"; node.textContent = safeUrl;
+      }
+      parent.appendChild(node); cursor = match.index + token.length;
+    }
+    if (cursor < value.length) parent.appendChild(document.createTextNode(value.slice(cursor)));
+  };
+  const addBlock = (tag, value, className) => {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    appendInline(element, value); container.appendChild(element);
+  };
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) { flushList(); continue; }
+    if (/^[-*_]{3,}$/.test(line)) { flushList(); container.appendChild(document.createElement("hr")); continue; }
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) { flushList(); addBlock("h" + (heading[1].length + 1), heading[2], "ai-answer-heading"); continue; }
+    const bullet = line.match(/^(?:[-*•])\s+(.+)$/);
+    const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+    if (bullet || numbered) {
+      const type = bullet ? "ul" : "ol";
+      if (!list || listType !== type) { flushList(); list = document.createElement(type); listType = type; }
+      const item = document.createElement("li"); appendInline(item, (bullet || numbered)[1]); list.appendChild(item); continue;
+    }
+    const quote = line.match(/^>\s?(.*)$/);
+    if (quote) { flushList(); addBlock("blockquote", quote[1], "ai-answer-quote"); continue; }
+    flushList(); addBlock("p", line, "");
+  }
+  flushList();
+  if (provider) {
+    const meta = document.createElement("div"); meta.className = "ai-answer-provider";
+    meta.textContent = "AI provider · " + provider; container.appendChild(meta);
+  }
+}
+
 $("#askForm").addEventListener("submit", async event => {
   event.preventDefault();
   const question = $("#question").value.trim();
@@ -1020,6 +1075,7 @@ $("#askForm").addEventListener("submit", async event => {
 
   submitButton.disabled = true;
   submitButton.textContent = "…";
+  responseBox.classList.remove("ai-response-rich");
   responseBox.textContent = "Thinking… SmartPay AI is contacting the AI provider.";
 
   waitingMessageTimer = setTimeout(() => {
@@ -1034,8 +1090,8 @@ $("#askForm").addEventListener("submit", async event => {
       signal: controller.signal
     });
     const data = await response.json();
-    if (data.answer) responseBox.textContent = data.answer + (data.provider ? "\\n\\nAI provider: " + data.provider : "");
-    else if (data.summary) responseBox.textContent = (data.error || "AI is temporarily unavailable.") + "\\n\\nCurrent invoice snapshot:\\n" + JSON.stringify(data.summary, null, 2);
+    if (data.answer) renderAssistantAnswer(responseBox, data.answer, data.provider);
+    else if (data.summary) renderAssistantAnswer(responseBox, (data.error || "AI is temporarily unavailable.") + "\\n\\n**Current invoice snapshot**\\n\\n" + JSON.stringify(data.summary, null, 2));
     else responseBox.textContent = data.error || "The AI assistant could not complete the request. Please try again.";
   } catch (error) {
     if (error.name === "AbortError") {
