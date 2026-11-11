@@ -44,7 +44,22 @@ function renderRiskReview(container, raw, provider) {
     const list = document.createElement("ol");
     priorityItems.forEach(match => {
       const item = document.createElement("li");
-      item.textContent = match[2].trim();
+      const recommendation = match[2].trim();
+      const description = document.createElement("span");
+      description.className = "risk-priority-description";
+      description.textContent = recommendation;
+      item.appendChild(description);
+      const mentionedInvoice = invoices.find(invoice => {
+        const id = String(invoice.id || "");
+        return id && recommendation.toLowerCase().includes(id.toLowerCase());
+      });
+      if (mentionedInvoice) {
+        const controls = createInvoiceActionControls(mentionedInvoice.id);
+        if (controls) {
+          controls.classList.add("risk-priority-controls");
+          item.appendChild(controls);
+        }
+      }
       list.appendChild(item);
     });
     section.append(heading, list);

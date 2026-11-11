@@ -1101,3 +1101,142 @@ footer span{color:#7f9ab6}
   border-radius:9px;
   padding:11px 13px;
 }
+
+
+/* SmartPay AI: actionable priority recommendations and consistent invoice form contrast */
+.forecast-ai-result .risk-review .risk-top-actions ol {
+  display:grid;
+  gap:12px;
+  padding-left:22px;
+}
+.forecast-ai-result .risk-review .risk-top-actions li {
+  padding:10px 12px;
+  border:1px solid #2c4c68;
+  border-radius:10px;
+  background:#142b42;
+  line-height:1.6;
+}
+.forecast-ai-result .risk-review .risk-priority-description {
+  display:block;
+  color:#eaf4ff!important;
+}
+.forecast-ai-result .risk-review .risk-priority-controls {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:9px;
+}
+.forecast-ai-result .risk-review .risk-priority-controls button {
+  min-height:36px;
+  padding:8px 12px;
+  border:1px solid #3988cf;
+  border-radius:8px;
+  background:linear-gradient(135deg,#1769b5,#245fe8);
+  color:#fff!important;
+  font:700 11px "DM Sans",sans-serif;
+  cursor:pointer;
+}
+.forecast-ai-result .risk-review .risk-priority-controls button:hover {
+  filter:brightness(1.08);
+}
+.create-invoice-form {
+  background:linear-gradient(145deg,#10243a,#142c45)!important;
+  border:1px solid #31506d!important;
+  color:#edf6ff!important;
+  box-shadow:0 12px 30px rgba(2,10,22,.18);
+}
+.create-invoice-form .create-invoice-fields label,
+.create-invoice-form .line-items-heading {
+  color:#d9e9f8!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  line-height:1.45;
+}
+.create-invoice-form input,
+.create-invoice-form input[type="date"],
+.create-invoice-form input[type="number"],
+.create-invoice-form input[type="email"],
+.create-invoice-form input[type="text"] {
+  min-height:42px;
+  box-sizing:border-box;
+  border:1px solid #45627d!important;
+  border-radius:8px!important;
+  background:#0b1c2e!important;
+  color:#f4f9ff!important;
+  -webkit-text-fill-color:#f4f9ff!important;
+  font:500 13px "DM Sans",sans-serif!important;
+}
+.create-invoice-form input::placeholder {
+  color:#91a9bf!important;
+  -webkit-text-fill-color:#91a9bf!important;
+  opacity:1;
+}
+.create-invoice-form input:focus {
+  outline:0!important;
+  border-color:#59b8ff!important;
+  box-shadow:0 0 0 3px rgba(73,169,255,.18)!important;
+}
+.create-invoice-form input[readonly] {
+  background:#19334d!important;
+  color:#a9dfff!important;
+  -webkit-text-fill-color:#a9dfff!important;
+  font-weight:800!important;
+}
+.create-invoice-form .line-items-editor {
+  border-top-color:#31506d!important;
+}
+.create-invoice-form .invoice-item-row {
+  padding:8px;
+  border:1px solid #29445f;
+  border-radius:10px;
+  background:#132b42;
+}
+.create-invoice-form .invoice-item-row strong {
+  color:#f4f9ff!important;
+  font-size:13px;
+}
+.create-invoice-form .line-items-total {
+  display:grid;
+  gap:9px;
+  padding:14px;
+  border:1px solid #31506d;
+  border-radius:10px;
+  background:#0b1c2e!important;
+  color:#c3d7e9!important;
+}
+.create-invoice-form .line-items-total strong {
+  color:#f4f9ff!important;
+}
+.create-invoice-form .line-items-total .invoice-grand-total {
+  border-top-color:#45627d!important;
+  color:#8edcff!important;
+}
+.create-invoice-form .line-items-total .invoice-grand-total strong {
+  color:#8edcff!important;
+  font-size:17px;
+}
+.create-invoice-form #createInvoiceMessage {
+  color:#b8cde0!important;
+  font-size:11px;
+  line-height:1.5;
+}
+.create-invoice-form #createInvoiceMessage.success-message { color:#83e4b4!important; }
+.create-invoice-form #createInvoiceMessage.error-message { color:#ff9da8!important; }
+.create-invoice-form .secondary-button,
+.create-invoice-form .remove-item-button {
+  border:1px solid #45627d!important;
+  background:#19334d!important;
+  color:#eaf4ff!important;
+}
+.create-invoice-form .remove-item-button {
+  color:#ffb6c0!important;
+}
+.create-invoice-form .create-invoice-actions button:not(.secondary-button) {
+  color:#fff!important;
+}
+@media(max-width:600px) {
+  .create-invoice-form { padding:13px!important; }
+  .create-invoice-form .invoice-item-row { padding:9px; }
+  .create-invoice-form .line-items-total span { align-items:flex-start; }
+  .forecast-ai-result .risk-review .risk-priority-controls button { flex:1 1 145px; }
+}
