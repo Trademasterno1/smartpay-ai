@@ -13,17 +13,44 @@ function money(amount, currency) {
 }
 
 function renderInvoices() {
-  $("#invoiceRows").innerHTML = invoices.map(invoice => `
+  const query = ($("#invoiceSearch")?.value || "").trim().toLowerCase();
+  const status = $("#invoiceStatusFilter")?.value || "ALL";
+  const visibleInvoices = invoices.filter(invoice => {
+    const matchesQuery = [invoice.id, invoice.customer, invoice.email].some(value => String(value || "").toLowerCase().includes(query));
+    return matchesQuery && (status === "ALL" || invoice.status === status);
+  });
+  $("#invoiceRows").innerHTML = visibleInvoices.map(invoice => `
     <tr>
       <td><strong>${escapeHTML(invoice.id)}</strong><small>${escapeHTML(invoice.customer)}</small></td>
       <td>${escapeHTML(invoice.dueDate)}</td>
       <td class="amount">${money(invoice.amount, invoice.currency)}</td>
       <td><span class="status ${escapeHTML(invoice.status)}">${escapeHTML(invoice.status)}</span></td>
-      <td>${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}</td>
+      <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}</td>
     </tr>`).join("");
+  if (!visibleInvoices.length) $("#invoiceRows").innerHTML = '<tr><td colspan="5">No matching invoices.</td></tr>';
   $("#invoiceRows").querySelectorAll("[data-invoice]").forEach(button => {
     button.addEventListener("click", () => startPayPalCheckout(button.dataset.invoice));
   });
+  $("#invoiceRows").querySelectorAll("[data-edit-invoice]").forEach(button => {
+    button.addEventListener("click", () => startEditInvoice(button.dataset.editInvoice));
+  });
+}
+
+
+function startEditInvoice(invoiceId) {
+  const invoice = invoices.find(item => item.id === invoiceId);
+  if (!invoice) return;
+  const form = $("#createInvoiceForm");
+  form.elements.invoiceId.value = invoice.id;
+  form.elements.customer.value = invoice.customer;
+  form.elements.email.value = invoice.email;
+  form.elements.amount.value = invoice.amount;
+  form.elements.dueDate.value = invoice.dueDate;
+  $("#createInvoiceButton").textContent = "Save changes";
+  $("#cancelEditButton").hidden = false;
+  $("#createInvoiceMessage").textContent = "Editing " + invoice.id + ". Paid or PayPal-linked invoices are locked.";
+  $("#createInvoiceMessage").className = "";
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 async function refreshDashboard() {
@@ -258,6 +285,18 @@ document.querySelectorAll(".suggestion").forEach(button => {
 });
 
 
+$("#invoiceSearch").addEventListener("input", renderInvoices);
+$("#invoiceStatusFilter").addEventListener("change", renderInvoices);
+
+$("#cancelEditButton").addEventListener("click", () => {
+  $("#createInvoiceForm").reset();
+  $("#editingInvoiceId").value = "";
+  $("#createInvoiceButton").textContent = "Create invoice";
+  $("#cancelEditButton").hidden = true;
+  $("#createInvoiceMessage").textContent = "New invoices are saved to Neon as UNPAID. No payment is taken.";
+  $("#createInvoiceMessage").className = "";
+});
+
 $("#createInvoiceForm").addEventListener("submit", async event => {
   event.preventDefault();
   const form = event.currentTarget;
@@ -265,34 +304,33 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
   const message = $("#createInvoiceMessage");
   const originalText = button.textContent;
   const formData = new FormData(form);
-  const payload = {
-    customer: formData.get("customer"),
-    email: formData.get("email"),
-    amount: formData.get("amount"),
-    dueDate: formData.get("dueDate")
-  };
+  const invoiceId = String(formData.get("invoiceId") || "");
+  const payload = { customer: formData.get("customer"), email: formData.get("email"), amount: formData.get("amount"), dueDate: formData.get("dueDate") };
   button.disabled = true;
   button.textContent = "Saving…";
-  message.textContent = "Saving invoice to Neon…";
+  message.textContent = invoiceId ? "Updating invoice in Neon…" : "Saving invoice to Neon…";
   message.className = "";
   try {
-    const response = await fetch("/api/invoices", {
-      method: "POST",
+    const response = await fetch(invoiceId ? "/api/invoices/" + encodeURIComponent(invoiceId) : "/api/invoices", {
+      method: invoiceId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify(payload)
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Could not create invoice.");
+    if (!response.ok) throw new Error(data.error || "Could not save invoice.");
     form.reset();
+    $("#editingInvoiceId").value = "";
+    $("#createInvoiceButton").textContent = "Create invoice";
+    $("#cancelEditButton").hidden = true;
     await refreshDashboard();
-    message.textContent = data.invoice.id + " created and saved as UNPAID.";
+    message.textContent = invoiceId ? data.invoice.id + " updated and saved." : data.invoice.id + " created and saved as UNPAID.";
     message.className = "success-message";
   } catch (error) {
-    message.textContent = error.message || "Could not create invoice. Please try again.";
+    message.textContent = error.message || "Could not save invoice. Please try again.";
     message.className = "error-message";
   } finally {
     button.disabled = false;
-    button.textContent = originalText;
+    if (!invoiceId) button.textContent = originalText;
   }
 });
 

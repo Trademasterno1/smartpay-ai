@@ -230,6 +230,42 @@ app.post("/api/invoices", async (req, res) => {
 });
 
 
+
+
+app.put("/api/invoices/:id", async (req, res) => {
+  try {
+    if (!pool || !databaseConnected) return res.status(503).json({ error: "Persistent database is unavailable. No changes were saved." });
+    const invoice = invoices.find(item => item.id === req.params.id);
+    if (!invoice) return res.status(404).json({ error: "Invoice not found." });
+    if (invoice.status === "PAID") return res.status(409).json({ error: "Paid invoices cannot be edited." });
+    if (invoice.paypalOrderId) return res.status(409).json({ error: "This invoice already has a PayPal order. Editing is locked to protect the checkout amount." });
+    const customer = String(req.body.customer || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const amountInput = String(req.body.amount ?? "").trim();
+    const dueDate = String(req.body.dueDate || "").trim();
+    const amount = Number(amountInput);
+    const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
+    if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid customer email address." });
+    if (!/^\d{1,8}(\.\d{1,2})?$/.test(amountInput) || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "Enter an amount greater than zero with up to 2 decimal places." });
+    if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
+    const updated = await pool.query(
+      `UPDATE invoices SET customer=$2, email=$3, amount=$4, due_date=$5, updated_at=NOW()
+       WHERE id=$1 AND status <> 'PAID' AND paypal_order_id IS NULL
+       RETURNING id, customer, email, amount::text, currency, status,
+                 to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId"`,
+      [invoice.id, customer, email, amount.toFixed(2), dueDate]
+    );
+    if (!updated.rowCount) return res.status(409).json({ error: "Invoice could not be edited. It may have been paid or linked to a PayPal order." });
+    Object.assign(invoice, updated.rows[0]);
+    console.log("Updated invoice " + invoice.id + " in PostgreSQL.");
+    return res.json({ invoice });
+  } catch (error) {
+    console.error("Invoice update failed:", error.message);
+    return res.status(500).json({ error: "Could not update the invoice. Please try again." });
+  }
+});
+
 async function createPayPalOrderForInvoice(invoice) {
   const token = await getPayPalAccessToken();
   const response = await fetch(PAYPAL_BASE + "/v2/checkout/orders", {
