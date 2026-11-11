@@ -234,16 +234,21 @@ function collectInvoiceItems() {
 
 function updateInvoiceItemsTotal() {
   const rows = [...$("#invoiceItemRows").querySelectorAll(".invoice-item-row")];
-  let cents = 0;
+  let subtotalCents = 0;
   rows.forEach(row => {
     const qty = Number(row.querySelector(".item-quantity").value);
     const price = Number(row.querySelector(".item-unit-price").value);
     const lineCents = Number.isFinite(qty * price) ? Math.round(qty * price * 100) : 0;
-    cents += lineCents;
+    subtotalCents += lineCents;
     row.querySelector(".item-row-total").textContent = money(lineCents / 100, "USD");
   });
-  $("#invoiceAmount").value = (cents / 100).toFixed(2);
-  $("#invoiceItemsTotal").textContent = money(cents / 100, "USD");
+  const taxRate = Math.min(100, Math.max(0, Number($("#invoiceTaxRate")?.value || 0)));
+  const taxCents = Math.round(subtotalCents * taxRate / 100);
+  const totalCents = subtotalCents + taxCents;
+  $("#invoiceAmount").value = (totalCents / 100).toFixed(2);
+  $("#invoiceItemsTotal").textContent = money(subtotalCents / 100, "USD");
+  $("#invoiceTaxAmount").textContent = money(taxCents / 100, "USD");
+  $("#invoiceGrandTotal").textContent = money(totalCents / 100, "USD");
 }
 
 function openInvoicePDF(invoiceId) {
@@ -259,6 +264,9 @@ function openInvoicePDF(invoiceId) {
   const issuer = invoice.merchantProfile || currentMerchantProfile;
   const issuerName = escapeHTML(issuer.businessName || "Merchant details not set");
   const issuerDetails = [issuer.address, issuer.email, issuer.phone, issuer.taxNumber ? "TRN: " + issuer.taxNumber : ""].filter(Boolean).map(escapeHTML);
+  const invoiceSubtotal = (Array.isArray(invoice.lineItems) && invoice.lineItems.length ? invoice.lineItems.reduce((sum, item) => sum + Number(item.quantity) * Number(item.unitPrice), 0) : Number(invoice.amount));
+  const invoiceTaxRate = Number(invoice.taxRate || 0);
+  const invoiceTaxAmount = Math.max(0, Number(invoice.amount) - invoiceSubtotal);
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -266,7 +274,7 @@ function openInvoicePDF(invoiceId) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHTML(invoice.id)} — SmartPay AI</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:32px;background:#f4f6fa;color:#17243a;font:14px Arial,sans-serif}.sheet{max-width:760px;margin:0 auto;background:#fff;padding:52px;border:1px solid #e7ebf1}.top{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:2px solid #172c4b;padding-bottom:24px}.brand{font-size:25px;font-weight:800;letter-spacing:-1px}.brand span{color:#1769e0}.muted{color:#7e8b9d}.eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:700;color:#8391a4}.invoice-title{text-align:right}.invoice-title h1{margin:8px 0;font-size:30px}.status{display:inline-block;padding:7px 10px;border-radius:5px;background:#edf4ff;color:#1769e0;font-size:11px;font-weight:700}.status.PAID{background:#e8f7ef;color:#13865b}.status.OVERDUE{background:#fff0f0;color:#b44d55}.details{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin:34px 0}.details h3{font-size:10px;letter-spacing:1px;color:#8995a5;margin:0 0 10px}.details strong{display:block;font-size:16px;margin-bottom:6px}.details p{margin:4px 0;color:#627187}.line{width:100%;border-collapse:collapse;margin-top:28px}.line th{text-align:left;color:#8290a3;font-size:10px;letter-spacing:.8px;padding:13px 10px;border-bottom:1px solid #e8edf3}.line td{padding:18px 10px;border-bottom:1px solid #e8edf3}.line th:last-child,.line td:last-child{text-align:right}.total{display:flex;justify-content:flex-end;margin-top:18px}.total div{width:260px;display:flex;justify-content:space-between;padding:14px 10px;font-size:17px;font-weight:800;border-bottom:2px solid #172c4b}.note{margin-top:34px;padding:15px;background:#f7f9fc;color:#64748a;font-size:11px;line-height:1.7}.footer{margin-top:34px;padding-top:16px;border-top:1px solid #e8edf3;color:#9aa5b4;font-size:10px;line-height:1.7}.actions{text-align:center;margin:22px auto}.actions button{border:0;border-radius:7px;background:#1769e0;color:#fff;padding:12px 20px;font-weight:700;font-size:13px;cursor:pointer}.print-help{max-width:520px;margin:12px auto;color:#64748a;font-size:12px;line-height:1.6}@media print{body{padding:0;background:#fff}.sheet{max-width:none;border:0;padding:28px}.actions{display:none}}@media(max-width:600px){body{padding:10px}.sheet{padding:24px}.top{flex-direction:column}.invoice-title{text-align:left}.details{gap:16px}}
+*{box-sizing:border-box}body{margin:0;padding:32px;background:#f4f6fa;color:#17243a;font:14px Arial,sans-serif}.sheet{max-width:760px;margin:0 auto;background:#fff;padding:52px;border:1px solid #e7ebf1}.top{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:2px solid #172c4b;padding-bottom:24px}.brand{font-size:25px;font-weight:800;letter-spacing:-1px}.brand span{color:#1769e0}.muted{color:#7e8b9d}.eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:700;color:#8391a4}.invoice-title{text-align:right}.invoice-title h1{margin:8px 0;font-size:30px}.status{display:inline-block;padding:7px 10px;border-radius:5px;background:#edf4ff;color:#1769e0;font-size:11px;font-weight:700}.status.PAID{background:#e8f7ef;color:#13865b}.status.OVERDUE{background:#fff0f0;color:#b44d55}.details{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin:34px 0}.details h3{font-size:10px;letter-spacing:1px;color:#8995a5;margin:0 0 10px}.details strong{display:block;font-size:16px;margin-bottom:6px}.details p{margin:4px 0;color:#627187}.line{width:100%;border-collapse:collapse;margin-top:28px}.line th{text-align:left;color:#8290a3;font-size:10px;letter-spacing:.8px;padding:13px 10px;border-bottom:1px solid #e8edf3}.line td{padding:18px 10px;border-bottom:1px solid #e8edf3}.line th:last-child,.line td:last-child{text-align:right}.totals{display:grid;gap:8px;width:280px;margin:18px 0 0 auto}.totals div{display:flex;justify-content:space-between;gap:16px;padding:5px 10px;color:#627187}.totals .grand-total{padding:12px 10px;font-size:17px;font-weight:800;color:#17243a;border-bottom:2px solid #172c4b}.note{margin-top:34px;padding:15px;background:#f7f9fc;color:#64748a;font-size:11px;line-height:1.7}.footer{margin-top:34px;padding-top:16px;border-top:1px solid #e8edf3;color:#9aa5b4;font-size:10px;line-height:1.7}.actions{text-align:center;margin:22px auto}.actions button{border:0;border-radius:7px;background:#1769e0;color:#fff;padding:12px 20px;font-weight:700;font-size:13px;cursor:pointer}.print-help{max-width:520px;margin:12px auto;color:#64748a;font-size:12px;line-height:1.6}@media print{body{padding:0;background:#fff}.sheet{max-width:none;border:0;padding:28px}.actions{display:none}}@media(max-width:600px){body{padding:10px}.sheet{padding:24px}.top{flex-direction:column}.invoice-title{text-align:left}.details{gap:16px}}
 </style>
 </head>
 <body>
@@ -274,7 +282,7 @@ function openInvoicePDF(invoiceId) {
 <div class="top"><div><div class="brand">${issuerName}</div>${issuerDetails.map(detail => `<p class="muted">${detail}</p>`).join("")}</div><div class="invoice-title"><div class="eyebrow">INVOICE</div><h1>${escapeHTML(invoice.id)}</h1><span class="status ${statusLabel}">${statusLabel}</span></div></div>
 <section class="details"><div><h3>BILL TO</h3><strong>${escapeHTML(invoice.customer)}</strong><p>${escapeHTML(invoice.email)}</p></div><div><h3>INVOICE DETAILS</h3><p>Generated: ${escapeHTML(generatedOn)}</p><p>Due date: <strong>${escapeHTML(invoice.dueDate)}</strong></p></div></section>
 <table class="line"><thead><tr><th>DESCRIPTION</th><th>QTY</th><th>UNIT PRICE</th><th>AMOUNT</th></tr></thead><tbody>${(Array.isArray(invoice.lineItems) && invoice.lineItems.length ? invoice.lineItems : [{description:"Services / goods",quantity:1,unitPrice:invoice.amount}]).map(item => { const lineTotal = Number(item.quantity) * Number(item.unitPrice); return `<tr><td>${escapeHTML(item.description)}</td><td>${escapeHTML(item.quantity)}</td><td>${escapeHTML(money(item.unitPrice, invoice.currency))}</td><td>${escapeHTML(money(lineTotal, invoice.currency))}</td></tr>`; }).join("")}</tbody></table>
-<div class="total"><div><span>TOTAL</span><span>${escapeHTML(money(invoice.amount, invoice.currency))}</span></div></div>
+<div class="totals"><div><span>Subtotal</span><span>${escapeHTML(money(invoiceSubtotal, invoice.currency))}</span></div><div><span>Tax (${escapeHTML(invoiceTaxRate)}%)</span><span>${escapeHTML(money(invoiceTaxAmount, invoice.currency))}</span></div><div class="grand-total"><span>TOTAL</span><span>${escapeHTML(money(invoice.amount, invoice.currency))}</span></div></div>
 <div class="note"><strong>DEMO DOCUMENT — NOT A TAX INVOICE</strong><br>This document was generated from the SmartPay AI demonstration workspace. Payments are restricted to PayPal Sandbox; no real funds are collected through this document.</div>
 <div class="footer">Generated with SmartPay AI · ${issuerName}<br>Invoice status reflects the latest status available in the workspace at the time this document was generated.</div>
 </main>
@@ -583,10 +591,10 @@ function renderInvoices() {
     return matchesQuery && (status === "ALL" || getInvoiceDisplayStatus(invoice) === status);
   });
   $("#invoiceRows").innerHTML = visibleInvoices.map(invoice => `
-    <tr>
+    <tr class="${getInvoiceDisplayStatus(invoice) === "PAID" ? "invoice-row--paid" : getInvoiceDisplayStatus(invoice) === "OVERDUE" ? "invoice-row--overdue" : "invoice-row--upcoming"}">
       <td><strong>${escapeHTML(invoice.id)}</strong><small>${escapeHTML(invoice.customer)}</small></td>
       <td>${escapeHTML(invoice.dueDate)}</td>
-      <td class="amount">${money(invoice.amount, invoice.currency)}</td>
+      <td class="amount">${money(invoice.amount, invoice.currency)}${Number(invoice.taxRate || 0) > 0 ? `<small>Includes ${escapeHTML(invoice.taxRate)}% tax</small>` : ""}</td>
       <td><span class="status ${escapeHTML(getInvoiceDisplayStatus(invoice))}">${escapeHTML(getInvoiceDisplayStatus(invoice))}</span></td>
       <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button><button class="delete-button" data-delete-invoice="${escapeHTML(invoice.id)}">Delete</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-collect-invoice="${escapeHTML(invoice.id)}">Collect Payment</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
     </tr>`).join("");
@@ -645,6 +653,10 @@ function startEditInvoice(invoiceId) {
   (Array.isArray(invoice.lineItems) && invoice.lineItems.length ? invoice.lineItems : [{description:"Services / goods",quantity:1,unitPrice:invoice.amount}]).forEach(item => addInvoiceItemRow(item));
   updateInvoiceItemsTotal();
   form.elements.dueDate.value = invoice.dueDate;
+  $("#invoiceTaxRate").value = Number(invoice.taxRate || 0);
+  updateInvoiceItemsTotal();
+  form.hidden = false;
+  $("#showCreateInvoiceButton").hidden = true;
   $("#createInvoiceButton").textContent = "Save changes";
   $("#cancelEditButton").hidden = false;
   $("#createInvoiceMessage").textContent = "Editing " + invoice.id + ". Paid or PayPal-linked invoices are locked.";
@@ -668,8 +680,11 @@ function downloadCSV(filename, headers, rows) {
 
 function exportInvoicesCSV() {
   downloadCSV('smartpay-invoices.csv',
-    ['Invoice ID','Customer','Email','Amount','Currency','Status','Due Date'],
-    invoices.map(x => [x.id,x.customer,x.email,x.amount,x.currency,getInvoiceDisplayStatus(x),x.dueDate]));
+    ['Invoice ID','Customer','Email','Subtotal','Tax %','Total','Currency','Status','Due Date'],
+    invoices.map(x => {
+      const subtotal = (Array.isArray(x.lineItems) ? x.lineItems : []).reduce((sum, item) => sum + Number(item.quantity) * Number(item.unitPrice), 0);
+      return [x.id,x.customer,x.email,subtotal.toFixed(2),Number(x.taxRate || 0),x.amount,x.currency,getInvoiceDisplayStatus(x),x.dueDate];
+    }));
 }
 
 function exportPaymentsCSV() {
@@ -1740,6 +1755,13 @@ $("#invoiceSearch").addEventListener("input", renderInvoices);
 $("#invoiceStatusFilter").addEventListener("change", renderInvoices);
 $("#monthlyRange").addEventListener("change", refreshMonthlyAnalytics);
 
+$("#showCreateInvoiceButton").addEventListener("click", () => {
+  $("#createInvoiceForm").hidden = false;
+  $("#showCreateInvoiceButton").hidden = true;
+  $("#cancelEditButton").hidden = false;
+  $("#createInvoiceForm").scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
 $("#cancelEditButton").addEventListener("click", () => {
   $("#createInvoiceForm").reset();
   $("#invoiceItemRows").innerHTML = "";
@@ -1747,6 +1769,10 @@ $("#cancelEditButton").addEventListener("click", () => {
   $("#editingInvoiceId").value = "";
   $("#createInvoiceButton").textContent = "Create invoice";
   $("#cancelEditButton").hidden = true;
+  $("#createInvoiceForm").hidden = true;
+  $("#showCreateInvoiceButton").hidden = false;
+  $("#invoiceTaxRate").value = "0";
+  updateInvoiceItemsTotal();
   $("#createInvoiceMessage").textContent = "New invoices are saved to Neon as UNPAID. No payment is taken.";
   $("#createInvoiceMessage").className = "";
 });
@@ -1759,7 +1785,7 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
   const originalText = button.textContent;
   const formData = new FormData(form);
   const invoiceId = String(formData.get("invoiceId") || "");
-  const payload = { customer: formData.get("customer"), email: formData.get("email"), amount: formData.get("amount"), dueDate: formData.get("dueDate"), lineItems: collectInvoiceItems() };
+  const payload = { customer: formData.get("customer"), email: formData.get("email"), amount: formData.get("amount"), taxRate: formData.get("taxRate") || "0", dueDate: formData.get("dueDate"), lineItems: collectInvoiceItems() };
   button.disabled = true;
   button.textContent = "Saving…";
   message.textContent = invoiceId ? "Updating invoice in Neon…" : "Saving invoice to Neon…";
@@ -1778,6 +1804,9 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
     $("#editingInvoiceId").value = "";
     $("#createInvoiceButton").textContent = "Create invoice";
     $("#cancelEditButton").hidden = true;
+    $("#createInvoiceForm").hidden = true;
+    $("#showCreateInvoiceButton").hidden = false;
+    $("#invoiceTaxRate").value = "0";
     await refreshDashboard();
     message.textContent = invoiceId ? data.invoice.id + " updated and saved." : data.invoice.id + " created and saved as UNPAID.";
     message.className = "success-message";
@@ -1791,7 +1820,9 @@ $("#createInvoiceForm").addEventListener("submit", async event => {
 });
 
 $("#addInvoiceItemButton").addEventListener("click", () => addInvoiceItemRow());
+$("#invoiceTaxRate").addEventListener("input", updateInvoiceItemsTotal);
 addInvoiceItemRow();
+updateInvoiceItemsTotal();
 
 loadMerchantProfile().catch(error => console.error("Merchant profile loading failed:", error));
 refreshDashboard().catch(error => console.error(error));

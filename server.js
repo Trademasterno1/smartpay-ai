@@ -164,6 +164,7 @@ async function initializeDatabase() {
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS line_items JSONB NOT NULL DEFAULT '[]'::jsonb`);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS merchant_profile JSONB`);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_token TEXT`);
+  await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5,2) NOT NULL DEFAULT 0`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS invoices_payment_token_unique ON invoices(payment_token) WHERE payment_token IS NOT NULL`);
   await pool.query(`CREATE TABLE IF NOT EXISTS merchant_settings (id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1), profile JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   const merchantResult = await pool.query(`SELECT profile FROM merchant_settings WHERE id = 1`);
@@ -198,6 +199,7 @@ async function initializeDatabase() {
       payment_token TEXT
     )
   `);
+  await pool.query(`ALTER TABLE judge_invoices ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5,2) NOT NULL DEFAULT 0`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS judge_invoices_payment_token_unique ON judge_invoices(payment_token) WHERE payment_token IS NOT NULL`);
   await pool.query(`CREATE TABLE IF NOT EXISTS judge_merchant_settings (
     id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -271,7 +273,7 @@ async function initializeDatabase() {
     );
   }
   const judgeResult = await pool.query(
-    `SELECT id, customer, email, amount::text, currency, status,
+    `SELECT id, customer, email, amount::text, currency, status, tax_rate::text AS "taxRate",
             to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
             line_items AS "lineItems", merchant_profile AS "merchantProfile",
             payment_token AS "paymentToken"
@@ -291,7 +293,7 @@ async function initializeDatabase() {
     await pool.query(`UPDATE invoices SET payment_token=$2 WHERE id=$1 AND payment_token IS NULL`, [row.id, crypto.randomBytes(32).toString("hex")]);
   }
   const result = await pool.query(
-    `SELECT id, customer, email, amount::text, currency, status,
+    `SELECT id, customer, email, amount::text, currency, status, tax_rate::text AS "taxRate",
             to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
             line_items AS "lineItems", merchant_profile AS "merchantProfile",
             payment_token AS "paymentToken"
@@ -306,13 +308,14 @@ async function persistInvoice(invoice) {
   if (!pool) return;
   const table = workspaceTable("invoices");
   await pool.query(
-    `INSERT INTO ${table} (id, customer, email, amount, currency, status, due_date, paypal_order_id, payment_token, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+    `INSERT INTO ${table} (id, customer, email, amount, currency, status, due_date, paypal_order_id, payment_token, tax_rate, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
      ON CONFLICT (id) DO UPDATE SET customer=EXCLUDED.customer, email=EXCLUDED.email,
        amount=EXCLUDED.amount, currency=EXCLUDED.currency, status=EXCLUDED.status,
        due_date=EXCLUDED.due_date, paypal_order_id=EXCLUDED.paypal_order_id,
+       tax_rate=EXCLUDED.tax_rate,
        payment_token=COALESCE(${table}.payment_token, EXCLUDED.payment_token), updated_at=NOW()`,
-    [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId, invoice.paymentToken || null]
+    [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId, invoice.paymentToken || null, Number(invoice.taxRate || 0)]
   );
 }
 
@@ -615,20 +618,24 @@ app.post("/api/invoices", async (req, res) => {
     const dueDate = String(req.body.dueDate || "").trim();
     const validatedItems = validateInvoiceLineItems(req.body.lineItems);
     if (validatedItems.error) return res.status(400).json({ error: validatedItems.error });
-    const amount = Number(validatedItems.amount);
+    const subtotal = Number(validatedItems.amount);
+    const taxRate = Number(req.body.taxRate ?? 0);
+    if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) return res.status(400).json({ error: "Tax must be a percentage between 0 and 100." });
+    const taxCents = Math.round(subtotal * taxRate);
+    const amount = (Math.round(subtotal * 100) + taxCents) / 100;
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
     if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) return res.status(400).json({ error: "Enter a valid customer email address, or leave it blank." });
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
+    if (!Number.isFinite(subtotal) || subtotal <= 0 || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const invoice = {
       id: "INV-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomBytes(3).toString("hex").toUpperCase(),
-      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...activeMerchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null,
+      customer, email, amount: amount.toFixed(2), taxRate: taxRate.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...activeMerchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null,
       paymentToken: crypto.randomBytes(32).toString("hex")
     };
     await pool.query(
-      `INSERT INTO ${workspaceTable("invoices")} (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile, payment_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)`,
-      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems), JSON.stringify(invoice.merchantProfile), invoice.paymentToken]
+      `INSERT INTO ${workspaceTable("invoices")} (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile, payment_token, tax_rate) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12)`,
+      [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems), JSON.stringify(invoice.merchantProfile), invoice.paymentToken, invoice.taxRate]
     );
     invoices.push(invoice);
     console.log("Created invoice " + invoice.id + " and saved it to PostgreSQL.");
@@ -654,19 +661,23 @@ app.put("/api/invoices/:id", async (req, res) => {
     const dueDate = String(req.body.dueDate || "").trim();
     const validatedItems = validateInvoiceLineItems(req.body.lineItems);
     if (validatedItems.error) return res.status(400).json({ error: validatedItems.error });
-    const amount = Number(validatedItems.amount);
+    const subtotal = Number(validatedItems.amount);
+    const taxRate = Number(req.body.taxRate ?? 0);
+    if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) return res.status(400).json({ error: "Tax must be a percentage between 0 and 100." });
+    const taxCents = Math.round(subtotal * taxRate);
+    const amount = (Math.round(subtotal * 100) + taxCents) / 100;
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && !Number.isNaN(Date.parse(dueDate + "T00:00:00Z")) && new Date(dueDate + "T00:00:00Z").toISOString().slice(0, 10) === dueDate;
     if (!customer || customer.length > 120) return res.status(400).json({ error: "Enter a customer name (maximum 120 characters)." });
     if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) return res.status(400).json({ error: "Enter a valid customer email address, or leave it blank." });
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
+    if (!Number.isFinite(subtotal) || subtotal <= 0 || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const updated = await pool.query(
-      `UPDATE ${workspaceTable("invoices")} SET customer=$2, email=$3, amount=$4, due_date=$5, line_items=$6::jsonb, updated_at=NOW()
+      `UPDATE ${workspaceTable("invoices")} SET customer=$2, email=$3, amount=$4, tax_rate=$5, due_date=$6, line_items=$7::jsonb, updated_at=NOW()
        WHERE id=$1 AND status <> 'PAID' AND paypal_order_id IS NULL
-       RETURNING id, customer, email, amount::text, currency, status,
+       RETURNING id, customer, email, amount::text, currency, status, tax_rate::text AS "taxRate",
                  to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
                  line_items AS "lineItems"`,
-      [invoice.id, customer, email, amount.toFixed(2), dueDate, JSON.stringify(validatedItems.items)]
+      [invoice.id, customer, email, amount.toFixed(2), taxRate.toFixed(2), dueDate, JSON.stringify(validatedItems.items)]
     );
     if (!updated.rowCount) return res.status(409).json({ error: "Invoice could not be edited. It may have been paid or linked to a PayPal order." });
     Object.assign(invoice, updated.rows[0]);
@@ -745,7 +756,7 @@ app.get("/api/public-invoices/:token", (req, res) => {
   if (!invoice) return res.status(404).json({ error: "This invoice link is invalid or has expired." });
   return res.json({
     id: invoice.id, customer: invoice.customer, amount: invoice.amount, currency: invoice.currency,
-    status: invoice.status, dueDate: invoice.dueDate, lineItems: invoice.lineItems || [],
+    taxRate: Number(invoice.taxRate || 0), status: invoice.status, dueDate: invoice.dueDate, lineItems: invoice.lineItems || [],
     merchantProfile: invoice.merchantProfile || {}
   });
 });
