@@ -569,11 +569,11 @@ function renderInvoices() {
       <td>${escapeHTML(invoice.dueDate)}</td>
       <td class="amount">${money(invoice.amount, invoice.currency)}</td>
       <td><span class="status ${escapeHTML(getInvoiceDisplayStatus(invoice))}">${escapeHTML(getInvoiceDisplayStatus(invoice))}</span></td>
-      <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button><button class="delete-button" data-delete-invoice="${escapeHTML(invoice.id)}">Delete</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-invoice="${escapeHTML(invoice.id)}">Pay with PayPal</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
+      <td class="invoice-actions-cell">${invoice.status !== "PAID" && !invoice.paypalOrderId ? `<button class="edit-button" data-edit-invoice="${escapeHTML(invoice.id)}">Edit</button><button class="delete-button" data-delete-invoice="${escapeHTML(invoice.id)}">Delete</button>` : ""}${invoice.status === "PAID" ? "—" : `<button class="pay-button" data-collect-invoice="${escapeHTML(invoice.id)}">Collect Payment</button>`}${invoice.paymentToken ? `<button class="share-button" data-copy-payment-link="${escapeHTML(invoice.paymentToken)}">Copy payment link</button>` : ""}<button class="pdf-button" data-pdf-invoice="${escapeHTML(invoice.id)}">PDF</button></td>
     </tr>`).join("");
   if (!visibleInvoices.length) $("#invoiceRows").innerHTML = '<tr><td colspan="5">No matching invoices.</td></tr>';
-  $("#invoiceRows").querySelectorAll("[data-invoice]").forEach(button => {
-    button.addEventListener("click", () => startPayPalCheckout(button.dataset.invoice));
+  $("#invoiceRows").querySelectorAll("[data-collect-invoice]").forEach(button => {
+    button.addEventListener("click", () => openCollectionSession(button.dataset.collectInvoice));
   });
   $("#invoiceRows").querySelectorAll("[data-edit-invoice]").forEach(button => {
     button.addEventListener("click", () => startEditInvoice(button.dataset.editInvoice));
@@ -1043,6 +1043,140 @@ function renderRecoveryInvoices() {
     card.append(details, actions, draft);
     container.appendChild(card);
   });
+}
+
+let collectionQrLibraryPromise = null;
+let collectionPollTimer = null;
+let collectionCountdownTimer = null;
+let activeCollectionToken = null;
+
+async function loadCollectionQrLibrary() {
+  if (window.QRCode) return window.QRCode;
+  if (collectionQrLibraryPromise) return collectionQrLibraryPromise;
+  collectionQrLibraryPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-smartpay-qr="true"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.QRCode), { once: true });
+      existing.addEventListener("error", () => reject(new Error("QR code library could not be loaded.")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.dataset.smartpayQr = "true";
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+    script.async = true;
+    script.onload = () => window.QRCode ? resolve(window.QRCode) : reject(new Error("QR code library did not initialize."));
+    script.onerror = () => reject(new Error("QR code library could not be loaded. Check the connection and use the payment link instead."));
+    document.head.appendChild(script);
+  }).catch(error => { collectionQrLibraryPromise = null; throw error; });
+  return collectionQrLibraryPromise;
+}
+
+function stopCollectionTimers() {
+  if (collectionPollTimer) clearInterval(collectionPollTimer);
+  if (collectionCountdownTimer) clearInterval(collectionCountdownTimer);
+  collectionPollTimer = null;
+  collectionCountdownTimer = null;
+}
+
+function closeCollectionSession() {
+  stopCollectionTimers();
+  activeCollectionToken = null;
+  document.getElementById("smartpayCollectionOverlay")?.remove();
+}
+
+async function openCollectionSession(invoiceId) {
+  const invoice = invoices.find(item => item.id === invoiceId);
+  if (!invoice || invoice.status === "PAID") return;
+  if (!invoice.paymentToken) {
+    window.alert("This invoice does not have a secure payment link yet. Refresh the dashboard and try again.");
+    return;
+  }
+  closeCollectionSession();
+  activeCollectionToken = invoice.paymentToken;
+  const paymentUrl = window.location.origin + "/pay/" + encodeURIComponent(invoice.paymentToken);
+  const overlay = document.createElement("div");
+  overlay.id = "smartpayCollectionOverlay";
+  overlay.className = "collection-overlay";
+  overlay.innerHTML = `
+    <section class="collection-dialog" role="dialog" aria-modal="true" aria-labelledby="collectionDialogTitle">
+      <button type="button" class="collection-close" aria-label="Close collection window">×</button>
+      <div class="eyebrow">MERCHANT COLLECTION SESSION</div>
+      <h2 id="collectionDialogTitle">Collect Payment</h2>
+      <p class="collection-invoice-label"></p>
+      <strong class="collection-amount"></strong>
+      <div class="collection-status" role="status" aria-live="polite">Waiting for customer payment</div>
+      <div class="collection-qr" aria-label="Scan this QR code to open the invoice"></div>
+      <p class="collection-scan-label">Customer: scan the QR code to open the secure invoice</p>
+      <div class="collection-link-label">CUSTOMER PAYMENT LINK</div>
+      <a class="collection-payment-link" target="_blank" rel="noopener noreferrer"></a>
+      <div class="collection-actions">
+        <button type="button" class="collection-copy">Copy payment link</button>
+        <span class="collection-countdown">15:00</span>
+      </div>
+      <p class="collection-session-note">This 15-minute window is a merchant-side display session. The invoice link remains valid after the window expires.</p>
+    </section>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".collection-invoice-label").textContent = invoice.id + " · " + invoice.customer;
+  overlay.querySelector(".collection-amount").textContent = money(invoice.amount, invoice.currency);
+  const link = overlay.querySelector(".collection-payment-link");
+  link.href = paymentUrl;
+  link.textContent = paymentUrl;
+  overlay.querySelector(".collection-close").addEventListener("click", closeCollectionSession);
+  overlay.addEventListener("click", event => { if (event.target === overlay) closeCollectionSession(); });
+  overlay.querySelector(".collection-copy").addEventListener("click", async event => {
+    try {
+      await navigator.clipboard.writeText(paymentUrl);
+      event.currentTarget.textContent = "Link copied";
+    } catch (_) {
+      window.prompt("Copy this secure customer payment link:", paymentUrl);
+    }
+  });
+  try {
+    const QRCodeLibrary = await loadCollectionQrLibrary();
+    if (activeCollectionToken !== invoice.paymentToken || !document.getElementById("smartpayCollectionOverlay")) return;
+    new QRCodeLibrary(overlay.querySelector(".collection-qr"), {
+      text: paymentUrl, width: 190, height: 190, colorDark: "#071a33",
+      colorLight: "#ffffff", correctLevel: QRCodeLibrary.CorrectLevel.M
+    });
+  } catch (error) {
+    overlay.querySelector(".collection-qr").textContent = "QR unavailable. Use the payment link below.";
+  }
+
+  const expiresAt = Date.now() + 15 * 60 * 1000;
+  const countdown = overlay.querySelector(".collection-countdown");
+  collectionCountdownTimer = setInterval(() => {
+    const remaining = Math.max(0, expiresAt - Date.now());
+    const minutes = String(Math.floor(remaining / 60000)).padStart(2, "0");
+    const seconds = String(Math.floor((remaining % 60000) / 1000)).padStart(2, "0");
+    countdown.textContent = minutes + ":" + seconds;
+    if (remaining <= 0) {
+      stopCollectionTimers();
+      overlay.querySelector(".collection-status").textContent = "Collection window expired";
+      overlay.querySelector(".collection-status").classList.add("expired");
+      overlay.querySelector(".collection-session-note").textContent = "The display session has ended. The invoice is still unpaid unless payment is confirmed. You can close this window and start a new collection session; the payment link remains valid.";
+    }
+  }, 1000);
+
+  const checkPayment = async () => {
+    if (activeCollectionToken !== invoice.paymentToken) return;
+    try {
+      const response = await fetch("/api/public-invoices/" + encodeURIComponent(invoice.paymentToken), { cache: "no-store", headers: { "Accept": "application/json" } });
+      if (!response.ok) return;
+      const latest = await response.json();
+      if (latest.status === "PAID") {
+        stopCollectionTimers();
+        overlay.querySelector(".collection-status").textContent = "Payment successful · Invoice PAID";
+        overlay.querySelector(".collection-status").classList.add("paid");
+        overlay.querySelector(".collection-countdown").textContent = "COMPLETED";
+        overlay.querySelector(".collection-session-note").textContent = "PayPal-confirmed payment detected. The invoice and payment history are being refreshed.";
+        await refreshDashboard();
+      }
+    } catch (error) {
+      console.warn("Collection status check failed:", error.message);
+    }
+  };
+  collectionPollTimer = setInterval(checkPayment, 3000);
+  checkPayment();
 }
 
 async function startPayPalCheckout(invoiceId) {
