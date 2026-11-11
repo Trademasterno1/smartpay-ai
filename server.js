@@ -2,12 +2,112 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
+const { AsyncLocalStorage } = require("async_hooks");
 const { Pool } = require("pg");
 
 const app = express();
 app.set("trust proxy", 1);
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json({ limit: "1mb" }));
+
+const workspaceContext = new AsyncLocalStorage();
+const sessions = new Map();
+const loginAttempts = new Map();
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSION_COOKIE = "smartpay_session";
+function getWorkspaceRole() { return workspaceContext.getStore()?.role === "judge" ? "judge" : "admin"; }
+function workspaceTable(kind) {
+  const judge = getWorkspaceRole() === "judge";
+  const tables = {
+    invoices: judge ? "judge_invoices" : "invoices",
+    payments: judge ? "judge_payment_events" : "payment_events",
+    merchant: judge ? "judge_merchant_settings" : "merchant_settings"
+  };
+  return tables[kind];
+}
+function safeEqual(a, b) {
+  const left = crypto.createHash("sha256").update(String(a || "")).digest();
+  const right = crypto.createHash("sha256").update(String(b || "")).digest();
+  return crypto.timingSafeEqual(left, right);
+}
+function signSession(id) {
+  return crypto.createHmac("sha256", process.env.SESSION_SECRET).update(id).digest("base64url");
+}
+function parseSessionCookie(req) {
+  const raw = String(req.headers.cookie || "").split(";").map(v => v.trim()).find(v => v.startsWith(SESSION_COOKIE + "="));
+  return raw ? decodeURIComponent(raw.slice(SESSION_COOKIE.length + 1)) : "";
+}
+function requireConfiguredAuth(res) {
+  if (!process.env.SESSION_SECRET || !process.env.ADMIN_PASSWORD || !process.env.JUDGE_PASSWORD) {
+    res.status(503).json({ error: "Secure sign-in is not configured. Please contact the administrator." });
+    return false;
+  }
+  return true;
+}
+app.get("/login", (_req, res) => res.sendFile(path.join(__dirname, "public", "login.html")));
+app.get("/index.html", (_req, res) => res.redirect("/"));
+app.post("/api/login", (req, res) => {
+  if (!requireConfiguredAuth(res)) return;
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const attempt = loginAttempts.get(ip) || { count: 0, resetAt: Date.now() + 15 * 60 * 1000 };
+  if (attempt.resetAt <= Date.now()) { attempt.count = 0; attempt.resetAt = Date.now() + 15 * 60 * 1000; }
+  if (attempt.count >= 5) return res.status(429).json({ error: "Too many sign-in attempts. Please wait 15 minutes and try again." });
+  const username = String(req.body.username || "").trim();
+  const password = String(req.body.password || "");
+  const adminMatch = safeEqual(username, process.env.ADMIN_USERNAME || "admin") && safeEqual(password, process.env.ADMIN_PASSWORD);
+  const judgeMatch = safeEqual(username, process.env.JUDGE_USERNAME || "judge") && safeEqual(password, process.env.JUDGE_PASSWORD);
+  if (!adminMatch && !judgeMatch) {
+    attempt.count += 1; loginAttempts.set(ip, attempt);
+    return res.status(401).json({ error: "The username or password is incorrect." });
+  }
+  loginAttempts.delete(ip);
+  const role = adminMatch ? "admin" : "judge";
+  const id = crypto.randomBytes(32).toString("hex");
+  sessions.set(id, { role, expiresAt: Date.now() + SESSION_TTL_MS });
+  const value = id + "." + signSession(id);
+  res.setHeader("Set-Cookie", SESSION_COOKIE + "=" + encodeURIComponent(value) + "; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=" + Math.floor(SESSION_TTL_MS / 1000));
+  return res.json({ authenticated: true, role });
+});
+app.get("/api/session", (req, res) => {
+  if (!requireConfiguredAuth(res)) return;
+  const value = parseSessionCookie(req);
+  const [id, signature] = value.split(".");
+  const session = id && sessions.get(id);
+  if (!session || session.expiresAt <= Date.now() || !signature || !safeEqual(signature, signSession(id))) {
+    if (id) sessions.delete(id);
+    return res.status(401).json({ authenticated: false });
+  }
+  return res.json({ authenticated: true, role: session.role, expiresAt: session.expiresAt });
+});
+app.post("/api/logout", (req, res) => {
+  const value = parseSessionCookie(req);
+  const [id] = value.split(".");
+  if (id) sessions.delete(id);
+  res.setHeader("Set-Cookie", SESSION_COOKIE + "=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0");
+  return res.json({ loggedOut: true });
+});
+app.use("/api", (req, res, next) => {
+  const publicExact = new Set(["/login", "/logout", "/session", "/config", "/health"]);
+  if (publicExact.has(req.path) || req.path.startsWith("/public-invoices/")) return next();
+  if (!requireConfiguredAuth(res)) return;
+  const value = parseSessionCookie(req);
+  const [id, signature] = value.split(".");
+  const session = id && sessions.get(id);
+  if (!session || session.expiresAt <= Date.now() || !signature || !safeEqual(signature, signSession(id))) {
+    if (id) sessions.delete(id);
+    return res.status(401).json({ error: "Your session has expired. Please sign in again." });
+  }
+  if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    const origin = req.get("origin");
+    if (origin) {
+      try {
+        if (new URL(origin).origin !== req.protocol + "://" + req.get("host")) return res.status(403).json({ error: "Cross-site request blocked." });
+      } catch (_) { return res.status(403).json({ error: "Invalid request origin." }); }
+    }
+  }
+  req.user = { role: session.role };
+  return workspaceContext.run({ role: session.role }, next);
+});
+app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 const PORT = process.env.PORT || 3000;
 const pool = process.env.DATABASE_URL
@@ -15,19 +115,30 @@ const pool = process.env.DATABASE_URL
   : null;
 let databaseConnected = false;
 let merchantProfile = { businessName: "", address: "", email: "", phone: "", taxNumber: "" };
+function getMerchantProfile() { return getWorkspaceRole() === "judge" ? judgeMerchantProfile : merchantProfile; }
 let judgeMerchantProfile = { businessName: "SmartPay Demo Merchant", address: "Demo workspace · no real merchant details", email: "demo@smartpay.example", phone: "", taxNumber: "" };
 const judgeInvoices = [];
 const PAYPAL_BASE = process.env.PAYPAL_ENV === "live"
   ? "https://api-m.paypal.com"
   : "https://api-m.sandbox.paypal.com";
 
-const invoices = [
+const adminInvoices = [
   { id: "INV-1001", customer: "Northstar Studio", email: "billing@example.com", amount: "249.00", currency: "USD", status: "PAID", dueDate: "2026-11-05", paypalOrderId: "DEMO-ORDER-1001" },
   { id: "INV-1002", customer: "Green Leaf Cafe", email: "accounts@example.com", amount: "580.00", currency: "USD", status: "PAID", dueDate: "2026-11-08", paypalOrderId: null },
   { id: "INV-1003", customer: "Atlas Design Co.", email: "finance@example.com", amount: "125.50", currency: "USD", status: "OVERDUE", dueDate: "2026-10-28", paypalOrderId: null },
   { id: "INV-1004", customer: "BrightPath Learning", email: "office@example.com", amount: "920.00", currency: "USD", status: "UNPAID", dueDate: "2026-11-15", paypalOrderId: null }
 ];
-
+const invoices = new Proxy(adminInvoices, {
+  get(_target, property) {
+    const active = getWorkspaceRole() === "judge" ? judgeInvoices : adminInvoices;
+    const value = Reflect.get(active, property, active);
+    return typeof value === "function" ? value.bind(active) : value;
+  },
+  set(_target, property, value) {
+    const active = getWorkspaceRole() === "judge" ? judgeInvoices : adminInvoices;
+    return Reflect.set(active, property, value, active);
+  }
+});
 
 async function initializeDatabase() {
   if (!pool) {
@@ -157,21 +268,23 @@ async function initializeDatabase() {
 
 async function persistInvoice(invoice) {
   if (!pool) return;
+  const table = workspaceTable("invoices");
   await pool.query(
-    `INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, payment_token, updated_at)
+    `INSERT INTO ${table} (id, customer, email, amount, currency, status, due_date, paypal_order_id, payment_token, updated_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
      ON CONFLICT (id) DO UPDATE SET customer=EXCLUDED.customer, email=EXCLUDED.email,
        amount=EXCLUDED.amount, currency=EXCLUDED.currency, status=EXCLUDED.status,
        due_date=EXCLUDED.due_date, paypal_order_id=EXCLUDED.paypal_order_id,
-       payment_token=COALESCE(invoices.payment_token, EXCLUDED.payment_token), updated_at=NOW()`,
+       payment_token=COALESCE(${table}.payment_token, EXCLUDED.payment_token), updated_at=NOW()`,
     [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, invoice.paypalOrderId, invoice.paymentToken || null]
   );
 }
 
 async function recordPaymentEvent(invoice, orderId, capture) {
   if (!pool) return;
+  const table = workspaceTable("payments");
   await pool.query(
-    `INSERT INTO payment_events (invoice_id, paypal_order_id, event_type, amount, currency, details)
+    `INSERT INTO ${table} (invoice_id, paypal_order_id, event_type, amount, currency, details)
      VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
     [invoice.id, orderId, "PAYMENT_CAPTURED", capture?.amount?.value || invoice.amount,
      capture?.amount?.currency_code || invoice.currency, JSON.stringify({ captureId: capture?.id || null, status: capture?.status || null })]
@@ -291,10 +404,11 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/invoices", (_req, res) => res.json(invoices));
 
-app.get("/api/merchant-profile", (_req, res) => res.json(merchantProfile));
+app.get("/api/merchant-profile", (_req, res) => res.json(getMerchantProfile()));
 
 app.put("/api/merchant-profile", async (req, res) => {
   try {
+    if (req.user?.role !== "admin") return res.status(403).json({ error: "The Judge Demo account cannot change merchant settings." });
     const fields = ["businessName", "address", "email", "phone", "taxNumber"];
     const limits = { businessName: 120, address: 300, email: 254, phone: 40, taxNumber: 40 };
     const updated = {};
@@ -403,7 +517,8 @@ function validateInvoiceLineItems(rawItems) {
 app.post("/api/invoices", async (req, res) => {
   try {
     if (!pool || !databaseConnected) return res.status(503).json({ error: "Persistent database is unavailable. No invoice was created." });
-    if (!merchantProfile.businessName) return res.status(400).json({ error: "Save the merchant details before issuing an invoice." });
+    const activeMerchantProfile = getMerchantProfile();
+    if (!activeMerchantProfile.businessName) return res.status(400).json({ error: "Save the merchant details before issuing an invoice." });
     const customer = String(req.body.customer || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
     const dueDate = String(req.body.dueDate || "").trim();
@@ -417,11 +532,11 @@ app.post("/api/invoices", async (req, res) => {
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const invoice = {
       id: "INV-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + crypto.randomBytes(3).toString("hex").toUpperCase(),
-      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...merchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null,
+      customer, email, amount: amount.toFixed(2), lineItems: validatedItems.items, merchantProfile: { ...activeMerchantProfile }, currency: "USD", status: "UNPAID", dueDate, paypalOrderId: null,
       paymentToken: crypto.randomBytes(32).toString("hex")
     };
     await pool.query(
-      "INSERT INTO invoices (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile, payment_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)",
+      `INSERT INTO ${workspaceTable("invoices")} (id, customer, email, amount, currency, status, due_date, paypal_order_id, line_items, merchant_profile, payment_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)`,
       [invoice.id, invoice.customer, invoice.email, invoice.amount, invoice.currency, invoice.status, invoice.dueDate, null, JSON.stringify(invoice.lineItems), JSON.stringify(invoice.merchantProfile), invoice.paymentToken]
     );
     invoices.push(invoice);
@@ -455,7 +570,7 @@ app.put("/api/invoices/:id", async (req, res) => {
     if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return res.status(400).json({ error: "The invoice total exceeds the supported amount." });
     if (!validDate) return res.status(400).json({ error: "Choose a valid due date." });
     const updated = await pool.query(
-      `UPDATE invoices SET customer=$2, email=$3, amount=$4, due_date=$5, line_items=$6::jsonb, updated_at=NOW()
+      `UPDATE ${workspaceTable("invoices")} SET customer=$2, email=$3, amount=$4, due_date=$5, line_items=$6::jsonb, updated_at=NOW()
        WHERE id=$1 AND status <> 'PAID' AND paypal_order_id IS NULL
        RETURNING id, customer, email, amount::text, currency, status,
                  to_char(due_date, 'YYYY-MM-DD') AS "dueDate", paypal_order_id AS "paypalOrderId",
@@ -505,6 +620,13 @@ async function createPayPalOrderForInvoice(invoice, applicationContext = null) {
 }
 
 
+app.use("/api/public-invoices/:token", (req, res, next) => {
+  const token = req.params.token;
+  const adminInvoice = adminInvoices.find(item => item.paymentToken && item.paymentToken === token);
+  const judgeInvoice = judgeInvoices.find(item => item.paymentToken && item.paymentToken === token);
+  const role = adminInvoice ? "admin" : judgeInvoice ? "judge" : "admin";
+  return workspaceContext.run({ role }, next);
+});
 app.get("/api/public-invoices/:token", (req, res) => {
   const invoice = invoices.find(item => item.paymentToken && item.paymentToken === req.params.token);
   if (!invoice) return res.status(404).json({ error: "This invoice link is invalid or has expired." });
@@ -747,7 +869,19 @@ function buildBusinessSummary() {
 app.get("/api/summary", (_req, res) => res.json(buildBusinessSummary()));
 
 app.get("/pay/:token", (_req, res) => res.sendFile(path.join(__dirname, "public", "pay.html")));
-app.get("*", (_req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+app.get("/", (req, res) => {
+  const value = parseSessionCookie(req);
+  const [id, signature] = value.split(".");
+  const session = id && sessions.get(id);
+  if (!session || session.expiresAt <= Date.now() || !signature || !safeEqual(signature, signSession(id))) {
+    return res.redirect("/login");
+  }
+  return res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+app.get("*", (req, res) => {
+  if (req.path === "/index.html") return res.redirect("/");
+  return res.status(404).send("Not found");
+});
 
 initializeDatabase()
   .then(() => app.listen(PORT, () => console.log("SmartPay AI running on port " + PORT)))
