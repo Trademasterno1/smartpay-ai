@@ -164,6 +164,7 @@ async function initializeDatabase() {
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS line_items JSONB NOT NULL DEFAULT '[]'::jsonb`);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS merchant_profile JSONB`);
   await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_token TEXT`);
+  await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5,2) NOT NULL DEFAULT 0`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS invoices_payment_token_unique ON invoices(payment_token) WHERE payment_token IS NOT NULL`);
   await pool.query(`CREATE TABLE IF NOT EXISTS merchant_settings (id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1), profile JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   const merchantResult = await pool.query(`SELECT profile FROM merchant_settings WHERE id = 1`);
@@ -198,6 +199,7 @@ async function initializeDatabase() {
       payment_token TEXT
     )
   `);
+  await pool.query(`ALTER TABLE judge_invoices ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5,2) NOT NULL DEFAULT 0`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS judge_invoices_payment_token_unique ON judge_invoices(payment_token) WHERE payment_token IS NOT NULL`);
   await pool.query(`CREATE TABLE IF NOT EXISTS judge_merchant_settings (
     id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
