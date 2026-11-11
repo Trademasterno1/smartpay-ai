@@ -1113,6 +1113,11 @@ async function openCollectionSession(invoiceId) {
         <button type="button" class="collection-copy">Copy payment link</button>
         <span class="collection-countdown">15:00</span>
       </div>
+      <div class="collection-share-actions">
+        <button type="button" class="collection-whatsapp">Share QR + message</button>
+        <button type="button" class="collection-download-qr">Download QR image</button>
+      </div>
+      <p class="collection-share-note">On supported phones, choose WhatsApp from the share sheet to send the QR image and message together.</p>
       <p class="collection-session-note">This 15-minute window is a merchant-side display session. The invoice link remains valid after the window expires.</p>
     </section>`;
   document.body.appendChild(overlay);
@@ -1130,6 +1135,50 @@ async function openCollectionSession(invoiceId) {
     } catch (_) {
       window.prompt("Copy this secure customer payment link:", paymentUrl);
     }
+  });
+  overlay.querySelector(".collection-whatsapp").addEventListener("click", () => {
+    const message = "Hello " + invoice.customer + ", your invoice " + invoice.id + " for " + money(invoice.amount, invoice.currency) + " is ready. You can review and pay securely here: " + paymentUrl;
+    const qrCanvas = overlay.querySelector(".collection-qr canvas");
+    const qrImage = overlay.querySelector(".collection-qr img");
+    const shareQr = async () => {
+      let file = null;
+      if (qrCanvas && qrCanvas.toBlob) {
+        const blob = await new Promise(resolve => qrCanvas.toBlob(resolve, "image/png"));
+        if (blob) file = new File([blob], "smartpay-payment-qr-" + invoice.id + ".png", { type: "image/png" });
+      } else if (qrImage && qrImage.src) {
+        const response = await fetch(qrImage.src);
+        const blob = await response.blob();
+        file = new File([blob], "smartpay-payment-qr-" + invoice.id + ".png", { type: "image/png" });
+      }
+      if (file && navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({ files: [file], title: "SmartPay payment request", text: message });
+        return;
+      }
+      window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
+      if (file) {
+        const note = overlay.querySelector(".collection-share-note");
+        if (note) note.textContent = "WhatsApp opened with the payment message. Download the QR image separately and attach it in the chat.";
+      }
+    };
+    shareQr().catch(error => {
+      console.warn("WhatsApp sharing failed:", error.message);
+      window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
+    });
+  });
+  overlay.querySelector(".collection-download-qr").addEventListener("click", () => {
+    const canvas = overlay.querySelector(".collection-qr canvas");
+    const image = overlay.querySelector(".collection-qr img");
+    let dataUrl = canvas ? canvas.toDataURL("image/png") : image?.src;
+    if (!dataUrl) {
+      window.alert("The QR code is not ready yet. Please try again in a moment.");
+      return;
+    }
+    const anchor = document.createElement("a");
+    anchor.href = dataUrl;
+    anchor.download = "smartpay-payment-qr-" + invoice.id + ".png";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
   });
   try {
     const QRCodeLibrary = await loadCollectionQrLibrary();
