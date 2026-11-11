@@ -450,8 +450,15 @@ function renderCashFlowForecast() {
       if (!response.ok) throw new Error(data.error || "AI risk review is unavailable.");
       const outstanding = invoices.filter(invoice => invoice.status !== "PAID");
       const answer = String(data.answer || "").trim();
-      const completeAIReview = outstanding.length > 0 &&
+      const invoiceIdCounts = outstanding.map(invoice => {
+        const escapedId = String(invoice.id).replace(/[.*+?^${}()|[\]\\]/g, "\\      const completeAIReview = outstanding.length > 0 &&
         outstanding.every(invoice => answer.includes(String(invoice.id))) &&
+        answer.length > 250;");
+        const matches = answer.match(new RegExp("(?:^|[^A-Z0-9_-])" + escapedId + "(?=$|[^A-Z0-9_-])", "gi")) || [];
+        return { id: String(invoice.id), count: matches.length };
+      });
+      const completeAIReview = outstanding.length > 0 &&
+        invoiceIdCounts.every(item => item.count === 1) &&
         answer.length > 250;
       const missingAIInvoiceIds = outstanding.filter(invoice => !answer.includes(String(invoice.id))).map(invoice => String(invoice.id));
       if (completeAIReview) {
@@ -1028,8 +1035,9 @@ function renderAssistantAnswer(container, answer, provider) {
   container.replaceChildren();
   container.classList.add("ai-response-rich");
   const lines = String(answer || "").replace(/\r\n?/g, "\n").trim().split("\n");
-  let list = null, listType = "";
+  let list = null, listType = "", codeLines = null;
   const flushList = () => { if (list) container.appendChild(list); list = null; listType = ""; };
+  const flushCode = () => { if (codeLines) { const pre = document.createElement("pre"); const code = document.createElement("code"); code.textContent = codeLines.join("\n"); pre.appendChild(code); container.appendChild(pre); } codeLines = null; };
   const appendInline = (parent, value) => {
     const pattern = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|https?:\/\/[^\s<]+)/g;
     let cursor = 0;
@@ -1057,6 +1065,12 @@ function renderAssistantAnswer(container, answer, provider) {
   };
   for (const rawLine of lines) {
     const line = rawLine.trim();
+    if (/^\x60{3}/.test(line)) {
+      flushList();
+      if (codeLines) flushCode(); else codeLines = [];
+      continue;
+    }
+    if (codeLines) { codeLines.push(rawLine); continue; }
     if (!line) { flushList(); continue; }
     if (/^[-*_]{3,}$/.test(line)) { flushList(); container.appendChild(document.createElement("hr")); continue; }
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
@@ -1073,6 +1087,7 @@ function renderAssistantAnswer(container, answer, provider) {
     flushList(); addBlock("p", line, "");
   }
   flushList();
+  flushCode();
   if (provider) {
     const meta = document.createElement("div"); meta.className = "ai-answer-provider";
     meta.textContent = "AI provider · " + provider; container.appendChild(meta);
@@ -1109,7 +1124,7 @@ $("#askForm").addEventListener("submit", async event => {
     });
     const data = await response.json();
     if (data.answer) renderAssistantAnswer(responseBox, data.answer, data.provider);
-    else if (data.summary) renderAssistantAnswer(responseBox, (data.error || "AI is temporarily unavailable.") + "\\n\\n**Current invoice snapshot**\\n\\n" + JSON.stringify(data.summary, null, 2));
+    else if (data.summary) renderAssistantAnswer(responseBox, (data.error || "AI is temporarily unavailable.") + "\n\n**Current invoice snapshot**\n\n```json\n" + JSON.stringify(data.summary, null, 2) + "\n```");
     else responseBox.textContent = data.error || "The AI assistant could not complete the request. Please try again.";
   } catch (error) {
     if (error.name === "AbortError") {
