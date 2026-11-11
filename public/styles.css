@@ -673,3 +673,5 @@ footer span{color:#9aabba;font-weight:500;letter-spacing:0}
 .invoice-pagination button{border:1px solid #dce5f0;background:#fff;color:#35506f;padding:7px 10px;border-radius:6px;font:700 10px "DM Sans";cursor:pointer}
 .invoice-pagination button:disabled{opacity:.4;cursor:not-allowed}
 @media(max-width:600px){.chart-with-axis{grid-template-columns:66px minmax(0,1fr);gap:6px}.chart-y-axis{font-size:8px}.monthly-chart-months{gap:5px}.monthly-chart-months[data-months="12"]{min-width:760px}.month-bars{gap:2px;height:138px}.month-detail{grid-template-columns:1fr}.invoice-pagination{align-items:flex-start;flex-direction:column}.invoice-pagination>div{width:100%;justify-content:space-between}}
+
+.invoice-bar{background:#397ad5}
