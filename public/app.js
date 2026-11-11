@@ -84,8 +84,9 @@ function renderRiskReview(container, raw, provider) {
     const section = document.createElement("section"); section.className = "risk-top-actions";
     const heading = document.createElement("h4"); heading.textContent = "Top 3 immediate actions";
     const list = document.createElement("ol");
-    const items = remainder.slice(topIndex).replace(/^top\s*3\s*immediate\s*actions[^\n]*/i, "").split(/(?=\s*[123]\.\s)/).map(clean).filter(item => /^[123]\.\s/.test(item));
-    items.forEach(item => { const li = document.createElement("li"); li.textContent = item.replace(/^[123]\.\s*/, ""); list.appendChild(li); });
+    const actionTail = remainder.slice(topIndex).replace(/^top\s*3\s*immediate\s*actions(?:\s+for\s+the\s+merchant)?/i, "");
+    const items = [...actionTail.matchAll(/(?:^|\s)([123])\.\s+([\s\S]*?)(?=(?:\s+[123]\.\s+)|$)/g)];
+    items.forEach(match => { const li = document.createElement("li"); li.textContent = clean(match[2]); list.appendChild(li); });
     section.append(heading,list); wrapper.appendChild(section);
   }
   if (!invoices.length) {
